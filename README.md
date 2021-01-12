@@ -7,7 +7,12 @@ wget http://downloads.sourceforge.net/project/peersim/peersim-1.0.5.zip
 
 unzip peersim-1.0.5.zip
 
-sudo cp peersim-1.0.5/*.jar Path jusque/SMR/lib 
+cp peersim-1.0.5/*.jar Path jusque/SMR/lib 
+
+zip -r src.zip peersim-1.0.5/src
+
+cp src.zip Path jusque/SMR/lib
+
 
 ```
 # configuration eclipse
