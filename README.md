@@ -51,9 +51,81 @@ requête associée à l’itération x
 - soit H i (x) = req tel que ∀H j 6 = H i ∧H j (x) 6 = ⊥ ⇒ H j (x) = req signifiant que tout
 autre historique qui maintient une valeur différente de ⊥ à l’itération x implique
 que la valeur de cette itération doit être égale à req.
+# Paxos basic
+Les nœuds externes au système sont appelés clients et ce sont ces nœuds qui
+émettent les requêtes. Parmi l’ensemble des nœuds internes au système, le protocole Paxos
+définit 3 rôles
+- **Learner :** les noeuds qui hébergent les réplicas du service
+- **Acceptor :** 
+- - les noeuds qui permettent de prendre une décision sur la valeur. Ils
+servent notamment à se rappeler si une valeur a déjà été décidée dans le passé ou
+bien si une nouvelle valeur doit être décidée
+- - Leur nombre dépend du nombre de
+fautes que l’on souhaite tolérer
+
+- - Les Acceptors doivent toujours former un quorum
+pour que le protocole fonctionne.Un quorum peut être n’importe quel
+ensemble d’Acceptor qui forme une majorité.
+ 
+
+- **Proposer :** les nœuds qui reçoivent les requêtes des clients et qui les soumettent
+à la décision des Acceptors, Ils sont responsables de récolter la réponse de ces
+derniers pour valider ou rejeter la requête du client.
 
 
-# Model de Paxos
+## Algo de base
+
+- **Étape 0** : Un client choisit un Proposer p et lui envoie sa requête
+
+- **Étape 1a** :
+- -  Le Proposer p émet à l’ensemble des Acceptors un message Prepare
+contenant un numéro de round (ballot ou numéro de séquence).
+
+- - Ce
+numéro de round doit être strictement supérieur à n’importe quel numéro de round
+déjà envoyé par p.
+
+- - Le but de ce message étant de savoir si un quorum d’Acceptors
+peut être atteint pour pouvoir soumettre la requête du client.
+
+- **Étape 1b** : À la réception d’un message Prepare sur un Acceptor a depuis un Proposer p pour un round n, il y a deux cas à considérer :
+
+- - si n est supérieur à n’importe quel round auquel a ait participé, un message
+Promise est envoyé à p. Ce message Promise permet d’indiquer à p que a
+ne participera plus à un scrutin de round inférieur n. Le message Promise
+contient éventuellement la précédente valeur v que a a déjà acceptée (lors d’une
+précédente phase 2b) associé à son numéro de round. nv
+
+
+- - sinon, a ignore le message ou éventuellement renvoi un message Reject à p lui
+indiquant que son numéro de round est invalide et obsolète.
+
+- **Étape 2a** : Lorsque p reçoit une majorité de Promise, il doit décider d’une valeur e.
+
+- - S’ il existe des Promise contenant des valeurs déjà acceptées par son envoyeur,
+alors p choisit la valeur v avec le numéro n v le plus grand.
+- - sinon, p est libre de choisir la valeur et dans notre cas il choisira la requête que
+le client lui a envoyée à l’étape 0.
+
+Le Proposer p envoie alors à l’ensemble des Acceptors la valeur e qu’il a choisie
+associée au numéro de round n qu’il a envoyé dans le message Prepare (désigné parfois aussi comme Commit)
+
+- **Étape 2b** : À la réception d’un message Accept sur un Acceptor a depuis un Proposer
+p pour un round n et une valeur e :
+
+- - si n est plus grand ou égal au numéro de round du dernier Promise que a ait
+envoyé, alors il accepte la valeur e. Il mémorise cette valeur (pour les éven-
+tuels futurs Prepare) et diffuse à l’ensemble des Learners qu’à p un message
+Accepted contenant la valeur e.
+
+- - sinon le message est ignoré
+
+- **Étape 3** : Lorsqu’un Learner l recoit une majorité de messages Accepted pour une
+même valeur e alors l prend acte de cette décision (la valeur est définitivement
+acceptée) et exécute la requête décrite par la valeur e. En fonction du protocole
+applicatif qui caractérise la requête, l peut répondre directement au client.
+
+# Model de Paxos utiliser
 
 ### Nœuds :
 - tout nœud interne au système est à la fois Proposer, Acceptor
