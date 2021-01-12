@@ -8,7 +8,7 @@
 	</classpathentry>
 	<classpathentry kind="lib" path="lib/djep-1.0.0.jar"/>
 	<classpathentry kind="lib" path="lib/jep-2.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/peersim-1.0.5.jar" sourcepath="/home/ta/Software/peersim-1.0.5/src.zip"/>
+	<classpathentry kind="lib" path="lib/peersim-1.0.5.jar" sourcepath="lib/src.zip"/>
 	<classpathentry kind="lib" path="lib/peersim-doclet.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
