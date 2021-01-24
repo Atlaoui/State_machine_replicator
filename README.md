@@ -13,7 +13,6 @@ zip -r src.zip peersim-1.0.5/src
 
 cp src.zip Path jusque/SMR/lib
 
-
 ```
 # configuration eclipse
 

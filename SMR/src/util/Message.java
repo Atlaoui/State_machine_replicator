@@ -8,8 +8,8 @@ public class Message {
 	public long getIdDest() {return iddest;}
 	public int getPid(){return pid;}
 	public Message(long idsrc, long iddest, int pid){
-	this.iddest=iddest;
-	this.idsrc=idsrc;
-	this.pid=pid;
+		this.iddest=iddest;
+		this.idsrc=idsrc;
+		this.pid=pid;
 	}
 }
