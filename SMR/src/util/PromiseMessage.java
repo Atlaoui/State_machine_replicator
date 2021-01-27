@@ -13,8 +13,8 @@ public class PromiseMessage extends Message{
 	 * 
 	 * @param propId
 	 */
-	public PromiseMessage(long idsrc, long iddest, int pid, int roundId , boolean isAccept) {
-		super(idsrc, iddest, pid);
+	public PromiseMessage(long idsrc, long iddest, int roundId , boolean isAccept) {
+		super(idsrc, iddest);
 		this.roundId=roundId;
 	}
 	

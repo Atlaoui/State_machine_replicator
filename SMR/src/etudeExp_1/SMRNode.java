@@ -49,7 +49,7 @@ public class SMRNode implements EDProtocol{
 				if(!isAccepted) {
 					isAccepted = true;
 					Transport tr = (Transport) node.getProtocol(transport_id);
-					Object toSend  = new PromiseMessage(node.getID(),msg.getIdSrc(),nodeId,roundId,true);
+					Object toSend  = new PromiseMessage(node.getID(),msg.getIdSrc(),roundId,true);
 					tr.send(node, Network.get((int)msg.getIdSrc()), toSend, nodeId);
 				}
 
