@@ -29,9 +29,23 @@ public class SMRNode implements EDProtocol{
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
 		// Implementation de l'algo TO DO
-
-
-
+		if(event instanceof FindLeaderMessage) {
+			//on ignore les roundId inferieur a celui courant
+			FindLeaderMessage msg = (FindLeaderMessage) event;
+			if(msg.getRoundId() >= roundId ) {
+				//update du round courant
+				roundId = msg.getRoundId();
+				
+				
+				
+				
+			}
+			else {
+				//osef
+				return;
+			}
+		}
+		
 	}
 
 	public void findLeader(Node node) {

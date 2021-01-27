@@ -12,5 +12,5 @@ public class FindLeaderMessage extends  Message{
 	 * Retour l'id de la proposition courante
 	 * @return
 	 */
-	public int getPropId() {return propId;}
+	public int getRoundId() {return propId;}
 }
