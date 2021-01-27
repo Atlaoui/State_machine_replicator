@@ -8,7 +8,9 @@ public class PromiseMessage extends Message{
 	 * @param idsrc
 	 * id du destinateur
 	 * @param iddest
+	 * a voir mes ptet pas besoin
 	 * @param pid
+	 * 
 	 * @param propId
 	 */
 	public PromiseMessage(long idsrc, long iddest, int pid, int roundId , boolean isAccept) {

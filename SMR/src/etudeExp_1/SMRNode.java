@@ -71,8 +71,6 @@ public class SMRNode implements EDProtocol{
 		long idsrc = node.getID();
 		Transport tr = (Transport) node.getProtocol(transport_id);
 		for (int i = 0; i < Network.size(); i++) {
-			if(nodeId == i)
-				continue;
 			Node dst = Network.get(i);
 			long idDest = Network.get(i).getID();
 			FindLeaderMessage msg = new FindLeaderMessage(idsrc, idDest, nodeId,roundId);
