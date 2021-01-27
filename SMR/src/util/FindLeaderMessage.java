@@ -13,8 +13,8 @@ public class FindLeaderMessage extends  Message{
 	 * @param pid
 	 * @param propId
 	 */
-	public FindLeaderMessage(long idsrc, long iddest, int pid, int propId) {
-		super(idsrc, iddest, pid);
+	public FindLeaderMessage(long idsrc, long iddest, int propId) {
+		super(idsrc, iddest);
 		this.propId=propId;
 	}
 	
