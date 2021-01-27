@@ -3,6 +3,11 @@ package etudeExp_1;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 import util.FindLeaderMessage;
+import util.PromiseMessage;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -16,6 +21,10 @@ public class SMRNode implements EDProtocol{
 	private final int nodeId;
 
 	private int roundId=0;
+
+	private List<Integer> H = new ArrayList<>();
+
+	private boolean isAccepted = false;
 
 	public SMRNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
@@ -35,17 +44,25 @@ public class SMRNode implements EDProtocol{
 			if(msg.getRoundId() >= roundId ) {
 				//update du round courant
 				roundId = msg.getRoundId();
-				
-				
-				
-				
+
+				//si on a a pas déja accépter une valeur 
+				if(!isAccepted) {
+					isAccepted = true;
+					Transport tr = (Transport) node.getProtocol(transport_id);
+					Object toSend  = new PromiseMessage(node.getID(),msg.getIdSrc(),nodeId,roundId,true);
+					tr.send(node, Network.get((int)msg.getIdSrc()), toSend, nodeId);
+				}
+
+			}else if (event instanceof PromiseMessage) {
+
 			}
 			else {
-				//osef
+				//sinon, a ignore le message ou éventuellement renvoi un message Reject 
+				//à p lui indiquant que son numéro de round est invalide et obsolète.
 				return;
 			}
 		}
-		
+
 	}
 
 	public void findLeader(Node node) {

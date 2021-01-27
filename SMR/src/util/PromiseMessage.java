@@ -1,10 +1,8 @@
 package util;
 
-public class FindLeaderMessage extends  Message{
+public class PromiseMessage extends Message{
 	
-	private final int propId;
-	
-	
+	private final int roundId;
 	/**
 	 * id du proc qui envois
 	 * @param idsrc
@@ -13,14 +11,15 @@ public class FindLeaderMessage extends  Message{
 	 * @param pid
 	 * @param propId
 	 */
-	public FindLeaderMessage(long idsrc, long iddest, int pid, int propId) {
+	public PromiseMessage(long idsrc, long iddest, int pid, int roundId , boolean isAccept) {
 		super(idsrc, iddest, pid);
-		this.propId=propId;
+		this.roundId=roundId;
 	}
 	
 	/**
 	 * Retour l'id de la proposition courante
 	 * @return
 	 */
-	public int getRoundId() {return propId;}
+	public int getRoundId() {return roundId;}
+
 }
