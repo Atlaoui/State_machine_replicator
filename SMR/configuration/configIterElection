@@ -6,10 +6,11 @@ init.i Client
 protocol.node SMRNode
 protocol.transport UniformRandomTransport
 
+protocol.applicative.SMRNode
+
 protocol.transport.mindelay 5
 protocol.transport.maxdelay 500
 
-protocol.broadcast.transport transport
+protocol.node.transport transport
 
 init.i Client
-init.i.SMRNodepid SMRNode
