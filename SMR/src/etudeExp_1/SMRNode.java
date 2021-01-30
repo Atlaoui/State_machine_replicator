@@ -41,12 +41,14 @@ public class SMRNode implements EDProtocol{
 	}
 
 
-
-
+	
+	private int nbAccepte = 0;
+	
+	private final int quorumSize =  Network.getCapacity()/2;
+	private int myLeader =-1;
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
-		// Implementation de l'algo TO DO
-		
+		System.out.println(node.getIndex()+": a recus un msg");
 		if (event instanceof AppSleepToMessage) {
 			isSleeping = false;
 			incrWaitingTime++;
@@ -63,20 +65,31 @@ public class SMRNode implements EDProtocol{
 				Transport tr = (Transport) node.getProtocol(transport_id);
 				Object toSend;
 				if(!isAccepted) {
+					System.out.println(node.getIndex()+": a accepter et envois un msg a -> " +msg.getIdSrc() );
 					isAccepted = true;
+					myLeader = (int) msg.getIdSrc();
 					toSend  = new PromiseMessage(node.getID(),msg.getIdSrc(),roundId,true);
 				}else {// ignore le message ou éventuellement renvoi un message Reject à p
-					toSend  = new RejectMessage(node.getID(),msg.getIdSrc());
+					System.out.println(node.getIndex()+": a rejeter et envois un msg a -> " +msg.getIdSrc() );
+					toSend  = new RejectMessage(node.getID(),msg.getIdSrc(),myLeader);
 				}
 				tr.send(node, Network.get((int)msg.getIdSrc()), toSend, nodeId);
 				/* ------ FIN ETAPE 1B ------*/
 
 			}else if (event instanceof PromiseMessage) {
 				//reçoit une majorité de Promise, il doit décider d’une valeur e?
+				PromiseMessage msgPromise = (PromiseMessage) event;
+				nbAccepte++;
+				if(nbAccepte >= quorumSize) {
+					myLeader = (int) msgPromise.getIdSrc();
+					System.out.println(node.getIndex()+": a décider du process -> " + myLeader);
+				}
 			}
-			else {
+			else  if (event instanceof RejectMessage) {
 				//sinon, a ignore le message ou éventuellement renvoi un message Reject 
 				//à p lui indiquant que son numéro de round est invalide et obsolète.
+				RejectMessage msgRej = (RejectMessage) event;
+				myLeader = msgRej.getTheChosenOne();
 				System.out.println("RejectMessage  >>  numero de round invalide");
 				return;
 			}
@@ -85,6 +98,7 @@ public class SMRNode implements EDProtocol{
 	}
 
 	public void findLeader(Node node) {
+		System.out.println(node.getIndex()+": veut devenir le leader ");
 		//pour init l'algo envois a tlm 
 		// a voir avec l'algo mais normalement en doit bien envoyer a tlm
 		long idsrc = node.getID();
