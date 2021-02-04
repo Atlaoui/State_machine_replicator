@@ -1,27 +1,33 @@
 package util;
 
+
+/**
+ * Le message Promise permet d’indiquer à dest que id ne participera plus à un scrutin de round inférieur.
+ * Le message Promise contient éventuellement la précédente valeur v que a a déjà acceptée 
+ * (lors d’une précédente phase 2b) associé à son numéro de round.
+ */
 public class PromiseMessage extends Message{
-	
+	private int value;
 	private final int roundId;
+	
 	/**
-	 * id du proc qui envois
-	 * @param idsrc
-	 * id du destinateur
-	 * @param iddest
-	 * a voir mes ptet pas besoin
-	 * @param pid
-	 * 
-	 * @param propId
+	 * @param idsrc : id de l'envoyeur
+	 * @param iddest : id du receveur
+	 * @param value
+	 * @param roundId
 	 */
-	public PromiseMessage(long idsrc, long iddest, int roundId , boolean isAccept) {
+	public PromiseMessage(long idsrc, long iddest, int value, int roundId) {
 		super(idsrc, iddest);
-		this.roundId=roundId;
+		this.value = value;
+		this.roundId = roundId;
 	}
 	
-	/**
-	 * Retour l'id de la proposition courante
-	 * @return
-	 */
+	
+	/* Retourne le valeur envoyé par l'envoyeur */
+	public int getValue() {return value;}
+	
+	
+	/* Retourne le round associé à l'envoyeur */
 	public int getRoundId() {return roundId;}
 
 }
