@@ -6,6 +6,7 @@ import peersim.transport.Transport;
 import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
+import util.messages.LeaderFoundMessage;
 import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
@@ -76,6 +77,7 @@ public class SMRNode implements EDProtocol{
 			if(isAccepted == false) {
 				Transport tr = (Transport) node.getProtocol(transport_id);
 				roundId++;
+				System.out.println("["+myId+"] Proposition rejeté, redemande election <"+myId+","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) {
 					Node dst = Network.get(i);
 					long idDest = Network.get(i).getID();
@@ -95,7 +97,7 @@ public class SMRNode implements EDProtocol{
 			//if (isPromise) {
 				// si ont a déja promis
 			//	toSend = new RejectMessage(node.getID(), msg.getIdSrc() ,(int) msg.getIdSrc());
-			 if(msg.getRoundId() >= roundId){ //round n est supérieur à round de a
+			 if(msg.getRoundId() > roundId){ //round n est supérieur à round de a
 					//myLeader = (int) msg.getIdSrc();
 					roundId = msg.getRoundId();//update du round courant
 
@@ -156,7 +158,7 @@ public class SMRNode implements EDProtocol{
 					tr.send(node, dst, msgAccepted, nodeId);
 				}
 			}else {//msg ignoré
-				System.out.println(myId+": a igonré un msg");
+				System.out.println(myId+": a ignoré un msg");
 			}
 
 		}
@@ -164,6 +166,7 @@ public class SMRNode implements EDProtocol{
 
 		/* ---- Étape 3 Lorsqu’un Learner l recoit une majorité de messages Accepted pour une même valeur e ---- */
 		else if (event instanceof AcceptedMessage) {
+			Transport tr = (Transport) node.getProtocol(transport_id);
 			AcceptedMessage msg = (AcceptedMessage) event;
 			H2.add((int) msg.getVal());
 			Set<Integer> st = new HashSet<Integer>(H2); 
@@ -171,8 +174,12 @@ public class SMRNode implements EDProtocol{
 				nbAccepted = Collections.frequency(H2, s);
 				if(nbAccepted >= quorumSize) {
 					myLeader = s;
-					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader);
-					return;
+					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
+					for (int i = 0; i < Network.size(); i++) {
+						LeaderFoundMessage msgFound = new LeaderFoundMessage(node.getID(), Network.get(i).getID(), myLeader);
+						tr.send(node, Network.get(i), msgFound, nodeId);
+					}
+					
 				}
 			}
 		}
@@ -183,8 +190,15 @@ public class SMRNode implements EDProtocol{
 			//à p lui indiquant que son numéro de round est invalide et obsolète.
 			RejectMessage msgRej = (RejectMessage) event;
 			myLeader = msgRej.getTheChosenOne();
-			System.out.println("RejectMessage  >>  numero de round invalide");
+			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
 			wait(node, 0);
+			return;
+		}
+		
+		else if (event instanceof LeaderFoundMessage) {
+			LeaderFoundMessage msg = (LeaderFoundMessage) event;
+			myLeader = (int) msg.getLeader();
+			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
 			return;
 		}
 	}
@@ -227,7 +241,7 @@ public class SMRNode implements EDProtocol{
 
 	public void wait(Node node,int nbCycle) {
 		AskAgainMessage appMes = new  AskAgainMessage(myId,myId);
-		//EDSimulator.add(nbCycle+incrWaitingTime, appMes, node, transport_id);
+		EDSimulator.add(nbCycle+incrWaitingTime, appMes, node, nodeId);
 		isSleeping = true;
 	}
 
