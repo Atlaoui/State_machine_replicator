@@ -1,5 +1,4 @@
-package util;
-
+package util.messages;
 
 /**
  * Le message Promise permet d’indiquer à dest que id ne participera plus à un scrutin de round inférieur.

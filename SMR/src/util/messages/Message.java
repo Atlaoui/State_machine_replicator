@@ -1,4 +1,4 @@
-package util;
+package util.messages;
 
 public class Message {
 	private final long idsrc;

@@ -1,6 +1,6 @@
-package util;
+package util.messages;
 
-public class FindLeaderMessage extends  Message{
+public class PrepareMessage extends  Message{
 	
 	private final int propId;
 	
@@ -13,7 +13,7 @@ public class FindLeaderMessage extends  Message{
 	 * @param pid
 	 * @param propId
 	 */
-	public FindLeaderMessage(long idsrc, long iddest, int propId) {
+	public PrepareMessage(long idsrc, long iddest, int propId) {
 		super(idsrc, iddest);
 		this.propId=propId;
 	}
