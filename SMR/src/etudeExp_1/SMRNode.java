@@ -3,6 +3,7 @@ package etudeExp_1;
 import peersim.edsim.EDProtocol;
 import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
+import util.FactoryMessage;
 import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
@@ -57,6 +58,8 @@ public class SMRNode implements EDProtocol{
 
 	/**  */
 	private boolean isPromise = false ;
+	
+	private FactoryMessage factory ;
 
 	public SMRNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
@@ -78,9 +81,10 @@ public class SMRNode implements EDProtocol{
 		 * ça c'est en cas de rejet
 		 */
 		if (event instanceof AskAgainMessage) {
+
 			//if(isAccepted == false) {
 			if(nbRejected ==  Network.getCapacity()) {
-				Transport tr = (Transport) node.getProtocol(transport_id);
+
 				roundId++;
 				System.out.println("["+myId+"] Proposition rejeté, redemande election <"+myId+","+roundId+">");
 				nbPromise = 0; //nombre de Promise reçu
@@ -88,10 +92,7 @@ public class SMRNode implements EDProtocol{
 				nbRejected = 0;
 				myLeader = myId;
 				for (int i = 0; i < Network.size(); i++) {
-					Node dst = Network.get(i);
-					long idDest = Network.get(i).getID();
-					PrepareMessage msg = new PrepareMessage(myId, idDest,roundId);
-					tr.send(node, dst, msg, nodeId);
+					factory.sendPrepareMessage( Network.get(i), roundId);
 				}
 			}
 		}
@@ -101,11 +102,9 @@ public class SMRNode implements EDProtocol{
 			//on ignore les roundId inferieur a celui courant
 			PrepareMessage msg = (PrepareMessage) event;
 			System.out.println(myId +":ACCEPTOR reception message Prepare du proposer [" + msg.getIdSrc()+"]");
-			Transport tr = (Transport) node.getProtocol(transport_id);
-			Object toSend;
 			//if (isPromise) {
 				// si ont a déja promis
-			//	toSend = new RejectMessage(node.getID(), msg.getIdSrc() ,(int) msg.getIdSrc());
+			//factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);	
 			 if(msg.getRoundId() > roundId){ //round n est supérieur à round de a
 					//myLeader = (int) msg.getIdSrc();
 					roundId = msg.getRoundId();//update du round courant
@@ -113,14 +112,14 @@ public class SMRNode implements EDProtocol{
 					System.out.println("\t Envoie message"+" <"+myLeader+","+roundId+"> Promise à [" + msg.getIdSrc() + 
 							"]\n\t >> promet qu'il ne participera pas au round inférieur au n° de round: "+roundId);
 					isPromise = true;
-					toSend = new PromiseMessage(node.getID(), msg.getIdSrc(), myLeader, roundId);
-				}else {//renvoi un message Reject à p
+					factory.sendPromise(Network.get((int)msg.getIdSrc()), myLeader, roundId);
+					}else {//renvoi un message Reject à p
 					System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
 							"]\n\t  >> numéro de round obsolète");
-					toSend = new RejectMessage(node.getID(), msg.getIdSrc() ,myLeader);
+
+					factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
 				} 
-			tr.send(node, Network.get((int)msg.getIdSrc()), toSend, nodeId);	
-		}
+			}
 
 
 		/* ---- Étape 2A : Lorsque p reçoit une majorité de Promise, il doit décider d’une valeur e ---- */
@@ -147,12 +146,8 @@ public class SMRNode implements EDProtocol{
 						+ ")\n\t il doit décider d'une valeur");
 				//Proposer p envoie alors à l’ensemble des Acceptors la valeur e qu’il a choisie associée au numéro de round n
 				System.out.println("\t diffuse un Accept à tous les Acceptor :  <" + myLeader +","+roundId+">");
-				Transport tr = (Transport) node.getProtocol(transport_id);
 				for (int i = 0; i < Network.size(); i++) {
-					Node dst = Network.get(i);
-					long idDest = Network.get(i).getID();
-					AcceptMessage msgAccept = new AcceptMessage(node.getID(), idDest, myLeader, roundId);
-					tr.send(node, dst, msgAccept, nodeId);
+					factory.sendAccept(Network.get(i), myLeader, roundId);
 				}
 			}
 		}
@@ -166,12 +161,8 @@ public class SMRNode implements EDProtocol{
 				myLeader = (int) msg.getVal();
 				//roundId = msg.getRoundId();
 				System.out.println("\n diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + myLeader +","+roundId+">");
-				Transport tr = (Transport) node.getProtocol(transport_id);
 				for (int i = 0; i < Network.size(); i++) {
-					Node dst = Network.get(i);
-					long idDest = Network.get(i).getID();
-					AcceptedMessage msgAccepted = new AcceptedMessage(node.getID(), idDest, myLeader);
-					tr.send(node, dst, msgAccepted, nodeId);
+					factory.sendAccepted(Network.get(i),myLeader);
 				}
 			}else {//msg ignoré
 				System.out.println(myId+": a ignoré un msg");
@@ -191,11 +182,7 @@ public class SMRNode implements EDProtocol{
 				if(nbAccepted >= quorumSize) {
 					myLeader = s;
 					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
-					for (int i = 0; i < Network.size(); i++) {
-						LeaderFoundMessage msgFound = new LeaderFoundMessage(node.getID(), Network.get(i).getID(), myLeader);
-						tr.send(node, Network.get(i), msgFound, nodeId);
-					}
-					
+					factory.broadcastFoundLead(myLeader); 
 				}
 			}
 		}
@@ -207,8 +194,12 @@ public class SMRNode implements EDProtocol{
 			RejectMessage msgRej = (RejectMessage) event;
 			myLeader = msgRej.getTheChosenOne();
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
+
 			nbRejected ++;
 			wait(node, 0);
+
+			factory.sendAskAgaineMessage(10);
+
 			return;
 		}
 		
@@ -232,14 +223,12 @@ public class SMRNode implements EDProtocol{
 		//pour init l'algo envoit à tlm 
 		// a voir avec l'algo mais normalement en doit bien envoyer a tlm
 		myId = (int) node.getID();
-		myLeader = myId;
-		Transport tr = (Transport) node.getProtocol(transport_id);
+		myLeader = myId; // a revoir ici
+		
+		factory = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),nodeId);	
 		//ETAPE 1A : émet à l’ensemble des Acceptors un message Prepare contenant un numéro de round
 		for (int i = 0; i < Network.size(); i++) {
-			Node dst = Network.get(i);
-			long idDest = Network.get(i).getID();
-			PrepareMessage msg = new PrepareMessage(myId, idDest,roundId);
-			tr.send(node, dst, msg, nodeId);
+			factory.sendPrepareMessage(Network.get(i), roundId);
 		}
 	}
 
@@ -252,9 +241,6 @@ public class SMRNode implements EDProtocol{
 		catch (CloneNotSupportedException e) {/*Never happends*/}
 		return n;
 	}
-
-
-
 
 
 	public void wait(Node node,int nbCycle) {
