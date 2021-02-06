@@ -1,8 +1,19 @@
-package etudeExp_1;
+package etudeExp_2;
 
-import peersim.edsim.EDProtocol;
-import peersim.edsim.EDSimulator;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+
+import etudeExp_1.SMRNode;
+import peersim.config.Configuration;
+import peersim.core.Network;
+import peersim.core.Node;
+import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 import util.FactoryMessage;
 import util.messages.AcceptMessage;
@@ -13,21 +24,7 @@ import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import peersim.config.Configuration;
-import peersim.core.Network;
-import peersim.core.Node;
-
-
-
-public class SMRNode implements EDProtocol{
+public class MPSNode implements EDProtocol{
 	private static final String PAR_TRANSPORT = "transport";
 
 	private final int transport_id;
@@ -67,7 +64,7 @@ public class SMRNode implements EDProtocol{
 
 	private Random rand = new Random();
 	
-	public SMRNode(String prefix) {
+	public MPSNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
 		String tmp[]=prefix.split("\\.");
 		protocol_id=Configuration.lookupPid(tmp[tmp.length-1]);
@@ -239,8 +236,8 @@ public class SMRNode implements EDProtocol{
 
 	@Override
 	public Object clone() {
-		SMRNode n = null;
-		try {n = (SMRNode) super.clone();} 
+		MPSNode n = null;
+		try {n = (MPSNode) super.clone();} 
 		catch (CloneNotSupportedException e) {/*Never happends*/}
 		return n;
 	}

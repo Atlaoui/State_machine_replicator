@@ -1,14 +1,13 @@
-package util;
+package etudeExp_1;
 
-import etudeExp_1.SMRNode;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
 
-public class Client implements Control{
+public class ControlE1 implements Control{
 
-	public  Client(String prefix) {}
+	public  ControlE1(String prefix) {}
 	
 	@Override
 	public boolean execute() {

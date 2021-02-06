@@ -1,7 +1,7 @@
 network.size 200
 simulation.endtime 50000
 random.seed 5
-init.i Client
+init.i ControlE1
 
 protocol.node SMRNode
 protocol.transport UniformRandomTransport
@@ -13,9 +13,9 @@ protocol.transport.maxdelay 500
 
 protocol.node.transport transport
 
-init.i Client
+init.i ControlE1
 
-control.endcontroler EndControler
+control.endcontroler EndControlerE1
 control.endcontroler.node node
 control.endcontroler.at -1
 control.endcontroler.FINAL
