@@ -30,7 +30,7 @@ public class SMRNode implements EDProtocol{
 
 	private final int transport_id;
 
-	private int nodeId; 
+	private int protocol_id; 
 
 	private int roundId=0;
 	private int myId;
@@ -63,7 +63,7 @@ public class SMRNode implements EDProtocol{
 	public SMRNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
 		String tmp[]=prefix.split("\\.");
-		nodeId=Configuration.lookupPid(tmp[tmp.length-1]);
+		protocol_id=Configuration.lookupPid(tmp[tmp.length-1]);
 	}
 
 
@@ -171,7 +171,6 @@ public class SMRNode implements EDProtocol{
 
 		/* ---- Étape 3 Lorsqu’un Learner l recoit une majorité de messages Accepted pour une même valeur e ---- */
 		else if (event instanceof AcceptedMessage) {
-			Transport tr = (Transport) node.getProtocol(transport_id);
 			AcceptedMessage msg = (AcceptedMessage) event;
 			H2.add((int) msg.getVal());
 			Set<Integer> st = new HashSet<Integer>(H2); 
@@ -204,6 +203,7 @@ public class SMRNode implements EDProtocol{
 			LeaderFoundMessage msg = (LeaderFoundMessage) event;
 			myLeader = (int) msg.getLeader();
 			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
+			System.out.println(myId+": a envoyer "+factory.getNbMsgSent()+" msg au roundId =" + roundId);
 		}
 	}
 
@@ -221,7 +221,7 @@ public class SMRNode implements EDProtocol{
 		myId = (int) node.getID();
 		myLeader = myId; // a revoir ici
 		
-		factory = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),nodeId);	
+		factory = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);	
 		//ETAPE 1A : émet à l’ensemble des Acceptors un message Prepare contenant un numéro de round
 		for (int i = 0; i < Network.size(); i++) {
 			factory.sendPrepareMessage(Network.get(i), roundId);

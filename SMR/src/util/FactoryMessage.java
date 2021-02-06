@@ -22,6 +22,10 @@ public class FactoryMessage {
 	
 	// l'idée du protocol
 	private int protocol_Id;
+	
+	private int nb_msg_sent = 0;
+
+
 
 	public FactoryMessage(Node node , Transport tr , int protocol_Id) {
 		this.tr = tr;
@@ -32,39 +36,48 @@ public class FactoryMessage {
 	public void sendAccept(Node destinataire , long valeurAccepter, int roundId) {
 		AcceptMessage msg = new AcceptMessage(node.getID(), destinataire.getID(), valeurAccepter, roundId);
 		tr.send(node, destinataire, msg, protocol_Id);
+		nb_msg_sent++;
 	}
 	
 	public void sendAccepted(Node destinataire , long valeurAccepter) {
 		AcceptedMessage msg = new AcceptedMessage(node.getID(), destinataire.getID(), valeurAccepter);
 		tr.send(node, destinataire, msg, protocol_Id);
+		nb_msg_sent++;
 	}
 	
 	public void sendPromise(Node destinataire , int val , int roundId) {
 		PromiseMessage msg = new PromiseMessage(node.getID(), destinataire.getID(),val,roundId);
 		tr.send(node, destinataire, msg, protocol_Id);
+		nb_msg_sent++;
 	}
 	
     public void sendPrepareMessage(Node destinataire , int roundId) {
     	PrepareMessage msg = new PrepareMessage(node.getID(), destinataire.getID(),roundId);
     	tr.send(node, destinataire, msg, protocol_Id);
+    	nb_msg_sent++;
 	}
     
     public void sendReject(Node destinataire , int Idaccepter) {
     	RejectMessage msg =	new RejectMessage(node.getID(),destinataire.getID() ,Idaccepter);
     	tr.send(node, destinataire, msg, protocol_Id);
+    	nb_msg_sent++;
     }
     
     public void broadcastFoundLead(int leader) {
     	for (int i = 0; i < Network.size(); i++) {
 			LeaderFoundMessage msgFound = new LeaderFoundMessage(node.getID(), Network.get(i).getID(), leader);
 			tr.send(node, Network.get(i), msgFound, protocol_Id);
+			nb_msg_sent++;
 		}
     }
 	
+    // je ne suis pas sur du nombre de msg 
 	public void sendAskAgaineMessage(int InnbCycle) {
 		AskAgainMessage appMes = new  AskAgainMessage();
 		EDSimulator.add(InnbCycle,appMes , node, protocol_Id);
 	}
 	
 	
+	public int getNbMsgSent() {return nb_msg_sent;}
+
 }
