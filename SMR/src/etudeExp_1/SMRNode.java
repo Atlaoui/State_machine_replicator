@@ -1,7 +1,6 @@
 package etudeExp_1;
 
 import peersim.edsim.EDProtocol;
-import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 import util.FactoryMessage;
 import util.messages.AcceptMessage;
