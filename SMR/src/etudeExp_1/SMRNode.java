@@ -14,8 +14,10 @@ import util.messages.RejectMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import peersim.config.Configuration;
@@ -33,9 +35,9 @@ public class SMRNode implements EDProtocol{
 
 	private int roundId=0;
 	private int myId;
-	private List<Integer> H = new ArrayList<>();
+	//private List<Integer> H = new ArrayList<>();
 	private List<Integer> H2 = new ArrayList<>();
-	//private HashMap<Integer, Integer> H = new HashMap<Integer, Integer>(); //historique de l'ensemble des valeurs
+	private HashMap<Integer, Integer> H = new HashMap<Integer, Integer>(); //historique de l'ensemble des valeurs
 
 	boolean isSleeping = false;
 	int incrWaitingTime = 0;//temps d'attente
@@ -43,6 +45,8 @@ public class SMRNode implements EDProtocol{
 	private int nbPromise = 0; //nombre de Promise reçu
 
 	private int nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
+	
+	private int nbRejected = 0;
 
 
 	private final int quorumSize = Network.getCapacity()/2+1; //valeur de la majorité
@@ -77,9 +81,16 @@ public class SMRNode implements EDProtocol{
 		 * ça c'est en cas de rejet
 		 */
 		if (event instanceof AskAgainMessage) {
-			if(isAccepted == false) {
+
+			//if(isAccepted == false) {
+			if(nbRejected ==  Network.getCapacity()) {
+
 				roundId++;
 				System.out.println("["+myId+"] Proposition rejeté, redemande election <"+myId+","+roundId+">");
+				nbPromise = 0; //nombre de Promise reçu
+				nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
+				nbRejected = 0;
+				myLeader = myId;
 				for (int i = 0; i < Network.size(); i++) {
 					factory.sendPrepareMessage( Network.get(i), roundId);
 				}
@@ -105,6 +116,7 @@ public class SMRNode implements EDProtocol{
 					}else {//renvoi un message Reject à p
 					System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
 							"]\n\t  >> numéro de round obsolète");
+
 					factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
 				} 
 			}
@@ -114,12 +126,19 @@ public class SMRNode implements EDProtocol{
 		else if (event instanceof PromiseMessage) {
 			PromiseMessage msgPromise = (PromiseMessage) event;
 			nbPromise++;
-			H.add(msgPromise.getValue());
+			H.put(msgPromise.getRoundId(), msgPromise.getValue());
 			if(nbPromise >= quorumSize) {
 				//myLeader = (int) msgPromise.getIdSrc();
 				//p choisit la valeur v avec le numéro nv le plus grand
-				if(H.size()!=0) {  //A REVOIR !!!!!!! peut etre stocker aussi le round ?
-					myLeader = Collections.max(H);
+				if(H.size()!=0) { 
+					int max = -1;
+					for (Map.Entry<Integer, Integer> entry : H.entrySet()) { 
+						if(entry.getKey() > max){
+							max = entry.getValue();
+						}
+					}
+					myLeader = max;
+					
 				}else {//p renvoie avec la valeur que le client lui a envoyé à l’étape 0 (au départ val=id node)
 					myLeader = myId;
 				}
@@ -140,7 +159,7 @@ public class SMRNode implements EDProtocol{
 			System.out.println("\n[2B] [ACCEPTOR - "+ myId+"] reception message Accept de ["+msg.getIdSrc()+"]");
 			if(msg.getRoundId() >= roundId) {//n est plus grand ou égal au numéro de round du dernier Promise
 				myLeader = (int) msg.getVal();
-				roundId = msg.getRoundId();
+				//roundId = msg.getRoundId();
 				System.out.println("\n diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + myLeader +","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) {
 					factory.sendAccepted(Network.get(i),myLeader);
@@ -148,7 +167,6 @@ public class SMRNode implements EDProtocol{
 			}else {//msg ignoré
 				System.out.println(myId+": a ignoré un msg");
 			}
-
 		}
 
 
@@ -158,6 +176,7 @@ public class SMRNode implements EDProtocol{
 			AcceptedMessage msg = (AcceptedMessage) event;
 			H2.add((int) msg.getVal());
 			Set<Integer> st = new HashSet<Integer>(H2); 
+		
 			for (Integer s : st) {
 				nbAccepted = Collections.frequency(H2, s);
 				if(nbAccepted >= quorumSize) {
@@ -175,7 +194,12 @@ public class SMRNode implements EDProtocol{
 			RejectMessage msgRej = (RejectMessage) event;
 			myLeader = msgRej.getTheChosenOne();
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
+
+			nbRejected ++;
+			wait(node, 0);
+
 			factory.sendAskAgaineMessage(10);
+
 			return;
 		}
 		
@@ -209,6 +233,7 @@ public class SMRNode implements EDProtocol{
 	}
 
 
+
 	@Override
 	public Object clone() {
 		SMRNode n = null;
@@ -217,5 +242,12 @@ public class SMRNode implements EDProtocol{
 		return n;
 	}
 
+
+	public void wait(Node node,int nbCycle) {
+		AskAgainMessage appMes = new  AskAgainMessage(myId,myId);
+		EDSimulator.add(nbCycle+incrWaitingTime, appMes, node, nodeId);
+		isSleeping = true;
+		incrWaitingTime+=5;
+	}
 
 }
