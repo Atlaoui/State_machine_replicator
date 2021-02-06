@@ -2,6 +2,7 @@ package etudeExp_1;
 
 import peersim.edsim.EDProtocol;
 import peersim.edsim.EDSimulator;
+import java.util.Random;
 import peersim.transport.Transport;
 import util.FactoryMessage;
 import util.messages.AcceptMessage;
@@ -64,6 +65,8 @@ public class SMRNode implements EDProtocol{
 	
 	private FactoryMessage factory ;
 
+	private Random rand = new Random();
+	
 	public SMRNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
 		String tmp[]=prefix.split("\\.");
@@ -199,8 +202,7 @@ public class SMRNode implements EDProtocol{
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
 
 			nbRejected ++;
-
-			factory.sendAskAgaineMessage(incrWaitingTime);
+			factory.sendAskAgaineMessage(incrWaitingTime+rand.nextInt(200));
 			incrWaitingTime += 1000;
 		}
 		
@@ -233,8 +235,6 @@ public class SMRNode implements EDProtocol{
 			factory.sendPrepareMessage(Network.get(i), roundId);
 		}
 	}
-
-
 
 	@Override
 	public Object clone() {
