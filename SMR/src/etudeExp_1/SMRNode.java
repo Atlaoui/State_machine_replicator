@@ -59,6 +59,9 @@ public class SMRNode implements EDProtocol{
 	/**  */
 	private boolean isPromise = false ;
 	
+	/*true si un leader a était trouver */
+	private boolean isFound = false;
+	
 	private FactoryMessage factory ;
 
 	public SMRNode(String prefix) {
@@ -80,7 +83,7 @@ public class SMRNode implements EDProtocol{
 		 * ici ont ici en recois un message de nous meme nous disons que il faudrait refaire une election
 		 * ça c'est en cas de rejet
 		 */
-		if (event instanceof AskAgainMessage) {
+		if (event instanceof AskAgainMessage && !isFound) {
 
 			//if(isAccepted == false) {
 			if(nbRejected ==  Network.getCapacity()) {
@@ -179,6 +182,7 @@ public class SMRNode implements EDProtocol{
 			for (Integer s : st) {
 				nbAccepted = Collections.frequency(H2, s);
 				if(nbAccepted >= quorumSize) {
+					isFound = true;
 					myLeader = s;
 					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
 					factory.broadcastFoundLead(myLeader); 
@@ -202,6 +206,7 @@ public class SMRNode implements EDProtocol{
 		
 		else if (event instanceof LeaderFoundMessage) {
 			LeaderFoundMessage msg = (LeaderFoundMessage) event;
+			isFound = true;
 			myLeader = (int) msg.getLeader();
 			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
 			System.out.println(myId+": a envoyer "+factory.getNbMsgSent()+" msg au roundId =" + roundId);
