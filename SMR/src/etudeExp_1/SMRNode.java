@@ -238,6 +238,10 @@ public class SMRNode implements EDProtocol{
 		catch (CloneNotSupportedException e) {/*Never happends*/}
 		return n;
 	}
+	
+	public int getId() {
+		return myId;
+	}
 
 
 }

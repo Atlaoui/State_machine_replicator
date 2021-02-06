@@ -14,3 +14,8 @@ protocol.transport.maxdelay 500
 protocol.node.transport transport
 
 init.i Client
+
+control.endcontroler EndControler
+control.endcontroler.node node
+control.endcontroler.at -1
+control.endcontroler.FINAL
