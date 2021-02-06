@@ -24,7 +24,7 @@ public class EndControler implements Control {
 		for(int i=0;i<Network.size();i++){
 			Node node =Network.get(i);
 			SMRNode prot = (SMRNode)node.getProtocol(pid_application);
-			System.out.println(prot.getId()+":node c'est terminer");
+			System.out.println(prot.getId()+":node c'est terminer et sont leader est : "+prot.getLeader());
 		}
 				
 		return false;

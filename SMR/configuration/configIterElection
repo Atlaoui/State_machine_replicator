@@ -1,4 +1,4 @@
-network.size 5
+network.size 200
 simulation.endtime 50000
 random.seed 5
 init.i Client

@@ -50,7 +50,7 @@ public class SMRNode implements EDProtocol{
 	private int nbRejected = 0;
 
 
-	private final int quorumSize = Network.getCapacity()/2+1; //valeur de la majorité
+	private final int quorumSize = (Network.getCapacity()/2)+1; //valeur de la majorité
 
 	private int myLeader;//valeur du leader choisis
 
@@ -81,12 +81,15 @@ public class SMRNode implements EDProtocol{
 	 */	
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
+			// je suis pas sur mais ça a l'aire de marcher si en mets ça xD
+			if(isFound)
+				return;
 
 		/**
 		 * ici ont ici en recois un message de nous meme nous disons que il faudrait refaire une election
 		 * ça c'est en cas de rejet
 		 */
-		if (event instanceof AskAgainMessage && !isFound) {
+		if (event instanceof AskAgainMessage ) {
 
 			//if(isAccepted == false) {
 			if(nbRejected ==  Network.getCapacity()) {
@@ -104,7 +107,7 @@ public class SMRNode implements EDProtocol{
 		}
 
 		/* ---- Étape 1B : À la réception d’un message Prepare sur un Acceptor a depuis un Proposer p pour un round n ---- */
-		else if(event instanceof PrepareMessage) {
+		else if(event instanceof PrepareMessage ) {
 			//on ignore les roundId inferieur a celui courant
 			PrepareMessage msg = (PrepareMessage) event;
 			System.out.println(myId +":ACCEPTOR reception message Prepare du proposer [" + msg.getIdSrc()+"]");
@@ -246,6 +249,10 @@ public class SMRNode implements EDProtocol{
 	
 	public int getId() {
 		return myId;
+	}
+	
+	public int getLeader() {
+		return myLeader;
 	}
 
 
