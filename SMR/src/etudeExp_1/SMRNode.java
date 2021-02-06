@@ -40,7 +40,7 @@ public class SMRNode implements EDProtocol{
 	private HashMap<Integer, Integer> H = new HashMap<Integer, Integer>(); //historique de l'ensemble des valeurs
 
 	boolean isSleeping = false;
-	int incrWaitingTime = 0;//temps d'attente
+	int incrWaitingTime = 100;//temps d'attente
 
 	private int nbPromise = 0; //nombre de Promise reçu
 
@@ -196,18 +196,15 @@ public class SMRNode implements EDProtocol{
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
 
 			nbRejected ++;
-			wait(node, 0);
 
-			factory.sendAskAgaineMessage(10);
-
-			return;
+			factory.sendAskAgaineMessage(incrWaitingTime);
+			incrWaitingTime += 1000;
 		}
 		
 		else if (event instanceof LeaderFoundMessage) {
 			LeaderFoundMessage msg = (LeaderFoundMessage) event;
 			myLeader = (int) msg.getLeader();
 			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
-			return;
 		}
 	}
 
@@ -242,12 +239,5 @@ public class SMRNode implements EDProtocol{
 		return n;
 	}
 
-
-	public void wait(Node node,int nbCycle) {
-		AskAgainMessage appMes = new  AskAgainMessage(myId,myId);
-		EDSimulator.add(nbCycle+incrWaitingTime, appMes, node, nodeId);
-		isSleeping = true;
-		incrWaitingTime+=5;
-	}
 
 }
