@@ -58,7 +58,7 @@ public class SMRNode implements EDProtocol{
 	private Random rand = new Random();
 	
 	/* Quantifie l’impact des paramètres */
-	private boolean backOff = true;//true: incrementation temps attente du wait
+	private boolean backOff = false	;//true: incrementation temps attente du wait
 	private boolean version0 = true;//true: roundId=0 pour tout le monde
 	
 	
@@ -74,6 +74,8 @@ public class SMRNode implements EDProtocol{
 	
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
+		if(isFound){return;}
+		
 		/* Message de ReProposition, indique qu'il faut relancer une requete car les autres ont refusé sa valeur */
 		if (event instanceof AskAgainMessage ) {
 			if(nbRejected ==  Network.getCapacity()) {
@@ -119,10 +121,11 @@ public class SMRNode implements EDProtocol{
 					int max = -1;
 					for (Map.Entry<Integer, Integer> entry : H.entrySet()) { 
 						if(entry.getKey() > max){
-							max = entry.getValue();
+							//max = entry.getValue();
+							max = entry.getKey();
 						}
 					}
-					myLeader = max;
+					myLeader = H.get(max);
 					
 				}else {//p renvoie avec la valeur que le client lui a envoyé à l’étape 0 (au départ val=id node)
 					myLeader = myId;
@@ -177,21 +180,17 @@ public class SMRNode implements EDProtocol{
 
 			factory.sendAskAgaineMessage(incrWaitingTime+rand.nextInt(200));
 			if(backOff == true) {
-				incrWaitingTime += 10;
+				incrWaitingTime += 50;
 			}
 		}
 		
 		/* Message de Terminaison : Signale que le leader a été trouvé */
 		else if (event instanceof LeaderFoundMessage) {
-			if(isFound == false) {//condition qui assure la terminaison
-				LeaderFoundMessage msg = (LeaderFoundMessage) event;
-				isFound = true;
-				myLeader = (int) msg.getLeader();
-				System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
-				System.out.println(myId+": a envoyé "+factory.getNbMsgSent()+" msg au roundId =" + msg.getRound());
-			}else {
-				return;
-			}
+			LeaderFoundMessage msg = (LeaderFoundMessage) event;
+			isFound = true;
+			myLeader = (int) msg.getLeader();
+			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
+			System.out.println(myId+": a envoyé "+factory.getNbMsgSent()+" msg au roundId =" + msg.getRound());
 		}
 	}
 
