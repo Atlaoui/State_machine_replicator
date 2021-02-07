@@ -1,5 +1,6 @@
 network.size 50
 
+
 simulation.endtime 100000
 random.seed 5
 init.i ControlE1
