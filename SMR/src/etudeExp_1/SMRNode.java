@@ -58,8 +58,8 @@ public class SMRNode implements EDProtocol{
 	private Random rand = new Random();
 	
 	/* Quantifie l’impact des paramètres */
-	private boolean backOff = false	;//true: incrementation temps attente du wait
-	private boolean version0 = true;//true: roundId=0 pour tout le monde
+	private boolean backOff = true	;//true: incrementation temps attente du wait
+	private boolean version0 = false;//true: roundId=0 pour tout le monde
 	
 	
 	//Constructor
