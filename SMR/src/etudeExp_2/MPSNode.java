@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-
 import etudeExp_1.SMRNode;
 import peersim.config.Configuration;
 import peersim.core.Network;
@@ -17,6 +16,8 @@ import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 import util.FactoryMessage;
 import util.FactoryReqest;
+import util.PersistantStorage;
+import util.Sequence;
 import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
@@ -24,7 +25,18 @@ import util.messages.LeaderFoundMessage;
 import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
+import util.request.AcceptReq;
+import util.request.AcceptedReq;
+import util.request.BeginSeq;
+import util.request.PrepareSeqence;
+import util.request.PromiseSeq;
+import util.request.RejectSeq;
 import util.request.Request;
+import util.request.RequestLater;
+import util.request.RequestMessage;
+import util.request.ResetReq;
+import util.request.RunSequenceAgain;
+import util.request.SeqFound;
 
 public class MPSNode implements EDProtocol{
 	private static final String PAR_TRANSPORT = "transport";
@@ -34,231 +46,362 @@ public class MPSNode implements EDProtocol{
 	private int protocol_id; 
 
 	private int roundId=0;
-	private int myId;
-	//private List<Integer> H = new ArrayList<>();
-	private List<Integer> H2 = new ArrayList<>();
-	private HashMap<Integer, Integer> H = new HashMap<Integer, Integer>(); //historique de l'ensemble des valeurs
 
-	boolean isSleeping = false;
-	int incrWaitingTime = 100;//temps d'attente
+	private int seqRoundId = 0;
+
+	private int myId;
+	private List<Integer> Haccept = new ArrayList<>();//ancienement H2
+	private HashMap<Integer, Integer> HRespLeader = new HashMap<>(); //historique de l'ensemble des valeurs
+
+
+	private HashMap<Integer, Request> Hreq = new HashMap<>();
+	private List<Request> Hseq = new ArrayList<>();//ancienement H2
+
+	private int incrWaitingTime = 100;//temps d'attente
+
+	private int seqWaitingTime = 100;
 
 	private int nbPromise = 0; //nombre de Promise reçu
 
 	private int nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
-	
+
 	private int nbRejected = 0;
+	
+	private int nbReady = 0;
+
+	private int myLeader;//valeur du leader choisis
 
 
 	private final int quorumSize = (Network.getCapacity()/2)+1; //valeur de la majorité
 
-	private int myLeader;//valeur du leader choisis
 
-	/** true si le node a accepter une valeur */
-	private boolean isAccepted = false;
+	private Request currentReq = null;
 
-	/**  */
-	private boolean isPromise = false ;
-	
 	/*true si un leader a était trouver */
 	private boolean isFound = false;
-	
+
+	private boolean isSeqValid = false;
+
+	private boolean startSecondPhase = false;
+
 	private FactoryMessage factoryMsg ;
-	
+
 	private FactoryReqest factoryReq;
-	
+
+
 	private Random rand = new Random();
-	
+
+
 	public MPSNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
 		String tmp[]=prefix.split("\\.");
 		protocol_id=Configuration.lookupPid(tmp[tmp.length-1]);
 	}
 
-
-
-	/*
-	 * la condition pour avoir une majorité est de recevoir N2 + 1 message Promise et Accepted contenant la
-	même valeur pour pouvoir passer en phase 2 et 3
-	 */	
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
-		
-		
-		if (event instanceof Request) {
-			//do what ever ? 
+		// paxos pour le leader
+		if(!isFound) {
+			myLeader = runPaxos(node, pid, event ,myLeader);
+		}else if(myLeader == myId && !startSecondPhase) {
+			startSecondPhase=true;
+			factoryReq.sendBeginSeq(10000);
 		}
-			// je suis pas sur mais ça a l'aire de marcher si en mets ça xD
-			if(isFound) return;
-		/**
-		 * ici ont ici en recois un message de nous meme nous disons que il faudrait refaire une election
-		 * ça c'est en cas de rejet
-		 */
+		
+		
+		if(event instanceof RequestLater) {
+			System.out.println(myId+": va lancer une instance de paxos");
+			if(Sequence.isEmpty()!=true) {
+				currentReq = Sequence.get().get(0);
+				sequentialReqest(node,currentReq);
+				if(Sequence.popOne())
+					factoryReq.sendRequestLater(1000,currentReq);
+			}
+		}
+		else if(event instanceof BeginSeq && !Sequence.isEmpty()) {
+			System.out.println(myId+":Begin Sequence ");
+			if(currentReq == null)
+				currentReq = Sequence.get().get(0);
+			sequentialReqest(node,currentReq);
+			if(Sequence.popOne())
+				factoryReq.sendRequestLater(1000,currentReq);
+		}else
+
+		if(event instanceof ResetReq) {
+			isSeqValid = false;
+			ResetReq msg = (ResetReq) event;
+			factoryReq.sendReady(Network.get((int)msg.getIdSrc()));
+		}else if(event instanceof RequestMessage && !isSeqValid) {
+			System.out.println(myId+": commence le secend paxasos");
+			isSeqValid = runSequentialPaxos(node,  pid, event ); 
+		}
+
+	}
+
+
+
+	public void findLeader(Node node) {	
+		myId = (int) node.getID();
+		System.out.println(myId+"P: fait une 1er proposition roundId =" + roundId);
+		myLeader = myId; 
+		factoryMsg = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);
+		
+		factoryReq = new FactoryReqest(node, (Transport) node.getProtocol(transport_id), protocol_id);
+		//ont ajoute notre Array
+		PersistantStorage.setH(myId, new ArrayList<Request>());
+		for (int i = 0; i < Network.size(); i++) {
+			factoryMsg.sendPrepareMessage(Network.get(i), roundId);
+		}
+	}
+
+
+
+	public void sequentialReqest(Node node,Request r) {
+		for (int i = 0; i < Network.size(); i++) {
+			factoryReq.sendReset(Network.get(i));
+			factoryReq.sendRequest(Network.get(i),r);
+		}
+	}
+
+
+
+
+	private int runPaxos(Node node, int pid, Object event , int Value) {
+
 		if (event instanceof AskAgainMessage ) {
-
-			//if(isAccepted == false) {
 			if(nbRejected ==  Network.getCapacity()) {
-
 				roundId++;
 				System.out.println("["+myId+"] Proposition rejeté, redemande election <"+myId+","+roundId+">");
 				nbPromise = 0; //nombre de Promise reçu
 				nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
 				nbRejected = 0;
-				myLeader = myId;
+				Value = -1;
 				for (int i = 0; i < Network.size(); i++) {
 					factoryMsg.sendPrepareMessage( Network.get(i), roundId);
 				}
 			}
 		}
 
-		/* ---- Étape 1B : À la réception d’un message Prepare sur un Acceptor a depuis un Proposer p pour un round n ---- */
 		else if(event instanceof PrepareMessage ) {
-			//on ignore les roundId inferieur a celui courant
 			PrepareMessage msg = (PrepareMessage) event;
-			System.out.println(myId +":ACCEPTOR reception message Prepare du proposer [" + msg.getIdSrc()+"]");
-			//if (isPromise) {
-				// si ont a déja promis
-			//factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);	
-			 if(msg.getRoundId() > roundId){ //round n est supérieur à round de a
-					//myLeader = (int) msg.getIdSrc();
-					roundId = msg.getRoundId();//update du round courant
+			System.out.println(myId +":A reception message Prepare du proposer [" + msg.getIdSrc()+"]");
+			if(msg.getRoundId() > roundId){ //round n est supérieur à round de a
+				//myLeader = (int) msg.getIdSrc();
+				roundId = msg.getRoundId();//update du round courant
 
-					System.out.println("\t Envoie message"+" <"+myLeader+","+roundId+"> Promise à [" + msg.getIdSrc() + 
-							"]\n\t >> promet qu'il ne participera pas au round inférieur au n° de round: "+roundId);
-					isPromise = true;
-					factoryMsg.sendPromise(Network.get((int)msg.getIdSrc()), myLeader, roundId);
-					}else {//renvoi un message Reject à p
-					System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
-							"]\n\t  >> numéro de round obsolète");
+				System.out.println("\t Envoie message"+" <"+Value+","+roundId+"> Promise à [" + msg.getIdSrc() + 
+						"]\n\t >> promet qu'il ne participera pas au round inférieur au n° de round: "+roundId);
+				factoryMsg.sendPromise(Network.get((int)msg.getIdSrc()), Value, roundId);
+			}else {//renvoi un message Reject à p
+				System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
+						"]\n\t  >> numéro de round obsolète");
 
-					factoryMsg.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
-				} 
-			}
+				factoryMsg.sendReject(Network.get((int)msg.getIdSrc()), Value);
+			} 
+		}
 
 
-		/* ---- Étape 2A : Lorsque p reçoit une majorité de Promise, il doit décider d’une valeur e ---- */
 		else if (event instanceof PromiseMessage) {
 			PromiseMessage msgPromise = (PromiseMessage) event;
 			nbPromise++;
-			H.put(msgPromise.getRoundId(), msgPromise.getValue());
+			HRespLeader.put(msgPromise.getRoundId(), msgPromise.getValue());
 			if(nbPromise >= quorumSize) {
 				//myLeader = (int) msgPromise.getIdSrc();
 				//p choisit la valeur v avec le numéro nv le plus grand
-				if(H.size()!=0) { 
+				if(HRespLeader.size()!=0) { 
 					int max = -1;
-					for (Map.Entry<Integer, Integer> entry : H.entrySet()) { 
+					for (Map.Entry<Integer, Integer> entry : HRespLeader.entrySet()) { 
 						if(entry.getKey() > max){
 							max = entry.getValue();
 						}
 					}
-					myLeader = max;
-					
-				}else {//p renvoie avec la valeur que le client lui a envoyé à l’étape 0 (au départ val=id node)
-					myLeader = myId;
+					Value = max;
+
+				}else {
+					Value = myId;
 				}
-				System.out.println("\n[2A]  [PROPOSER - "+myId+"] a reçu une majorité de Promise(= "+nbPromise
-						+ ")\n\t il doit décider d'une valeur");
-				//Proposer p envoie alors à l’ensemble des Acceptors la valeur e qu’il a choisie associée au numéro de round n
-				System.out.println("\t diffuse un Accept à tous les Acceptor :  <" + myLeader +","+roundId+">");
+				System.out.println(myId+"P: a reçu une majorité de Promise(= "+nbPromise+ ")");
+				System.out.println(myId+"P: diffuse un Accept à tous les Acceptor :  <" + Value +","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) 
-					factoryMsg.sendAccept(Network.get(i), myLeader, roundId);
+					factoryMsg.sendAccept(Network.get(i), Value, roundId);
 			}
 		}
 
-
-		/* ---- Étape 2B À la réception d’un message Accept sur un Acceptor a depuis un Proposer p pour un round n et une valeur e ---- */
 		else if (event instanceof AcceptMessage) {
 			AcceptMessage msg = (AcceptMessage) event;
-			System.out.println("\n[2B] [ACCEPTOR - "+ myId+"] reception message Accept de ["+msg.getIdSrc()+"]");
-			if(msg.getRoundId() >= roundId) {//n est plus grand ou égal au numéro de round du dernier Promise
-				myLeader = (int) msg.getVal();
-				//roundId = msg.getRoundId();
-				System.out.println("\n diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + myLeader +","+roundId+">");
+			System.out.println(myId+"A: reception message Accept de ["+msg.getIdSrc()+"]");
+			if(msg.getRoundId() >= roundId) {
+				Value = (int) msg.getVal();
+				System.out.println(myId+"A: diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + Value +","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) {
-					factoryMsg.sendAccepted(Network.get(i),myLeader);
+					factoryMsg.sendAccepted(Network.get(i),Value);
 				}
 			}else {//msg ignoré
-				System.out.println(myId+": a ignoré un msg");
+				System.out.println(myId+"A: a ignoré un msg");
 			}
 		}
 
-
-		/* ---- Étape 3 Lorsqu’un Learner l recoit une majorité de messages Accepted pour une même valeur e ---- */
 		else if (event instanceof AcceptedMessage) {
 			AcceptedMessage msg = (AcceptedMessage) event;
-			H2.add((int) msg.getVal());
-			Set<Integer> st = new HashSet<Integer>(H2); 
-		
+			Haccept.add((int) msg.getVal());
+			Set<Integer> st = new HashSet<Integer>(Haccept); 
+
 			for (Integer s : st) {
-				nbAccepted = Collections.frequency(H2, s);
+				nbAccepted = Collections.frequency(Haccept, s);
 				if(nbAccepted >= quorumSize) {
 					isFound = true;
-					myLeader = s;
-					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
+					Value = s;
+					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ Value+"je signale aux autres");
 
-					factoryMsg.broadcastFoundLead(myLeader, roundId); 
+					factoryMsg.broadcastFoundLead(Value, roundId); 
 
 				}
 			}
 		}
 
-
-		else  if (event instanceof RejectMessage) {//reception un message Reject, attend avant de réitérer sa proposition
-			//sinon, a ignore le message ou éventuellement renvoi un message Reject 
-			//à p lui indiquant que son numéro de round est invalide et obsolète.
+		else  if (event instanceof RejectMessage) {
 			RejectMessage msgRej = (RejectMessage) event;
-			myLeader = msgRej.getTheChosenOne();
+			Value = msgRej.getTheChosenOne();
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
 
 			nbRejected ++;
 			factoryMsg.sendAskAgaineMessage(incrWaitingTime+rand.nextInt(200));
 			incrWaitingTime += 1000;
 		}
-		
+
 		else if (event instanceof LeaderFoundMessage) {
 			LeaderFoundMessage msg = (LeaderFoundMessage) event;
 			isFound = true;
-			myLeader = (int) msg.getLeader();
-			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
+			Value = (int) msg.getLeader();
+			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ Value);
 			System.out.println(myId+": a envoyer "+factoryMsg.getNbMsgSent()+" msg au roundId =" + roundId);
 		}
+		return Value;
 	}
 
+	Request Value;
 
+	private boolean runSequentialPaxos(Node node, int pid, Object event ) {
+		boolean isFinished = false;
 
+		if(Value!= null && Hcontains(Value)) return true;
 
+		if (event instanceof RunSequenceAgain ) {
+			RunSequenceAgain msg = (RunSequenceAgain) event;
+			if(nbRejected ==  Network.getCapacity()) {
+				seqRoundId++;
+				System.out.println("["+myId+"] Proposition rejeté, redemande election <"+myId+","+seqRoundId+">");
+				nbPromise = 0; //nombre de Promise reçu
+				nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
+				nbRejected = 0;
+				Value = msg.getRquest();
 
-
-
-	/* ---- Étape 1A : Le Proposer p émet à l’ensemble des Acceptors un message Prepare ---- */
-	public void findLeader(Node node) {	
-		System.out.println("\n[1A] [PROPOSER - " + node.getIndex() + "] veut devenir le leader avec le numéro de ballot: " + roundId);
-		//pour init l'algo envoit à tlm 
-		// a voir avec l'algo mais normalement en doit bien envoyer a tlm
-		myId = (int) node.getID();
-		myLeader = myId; // a revoir ici
-		
-		factoryMsg = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);
-		
-		
-		//ETAPE 1A : émet à l’ensemble des Acceptors un message Prepare contenant un numéro de round
-		for (int i = 0; i < Network.size(); i++) {
-			factoryMsg.sendPrepareMessage(Network.get(i), roundId);
-		}
-	}
-	
-	
-	// faire le taf du leader normalement
-	public void sequentialReqest(Node node) {
-		factoryReq = new FactoryReqest(node, (Transport) node.getProtocol(transport_id), protocol_id);
-		for (int i = 0; i < Network.size(); i++) {
-			Node n = Network.get(i);
-			if(n != node) {
-				factoryReq.sendRandRequest(n);
+				for (int i = 0; i < Network.size(); i++) 
+					factoryReq.sendPrepareSeq(Network.get(i), seqRoundId, Value);
 			}
 		}
+
+		else if(event instanceof PrepareSeqence ) {
+			PrepareSeqence msg = (PrepareSeqence) event;
+			System.out.println(myId +":A reception message Prepare du proposer [" + msg.getIdSrc()+"]");
+			if(msg.getRoundId() > seqRoundId){ //round n est supérieur à round de a
+				seqRoundId = msg.getRoundId();//update du round courant
+				System.out.println("\t Envoie message"+" <"+Value+","+seqRoundId+"> Promise à [" + msg.getIdSrc() + 
+						"]\n\t >> promet qu'il ne participera pas au round inférieur au n° de round: "+seqRoundId);
+				factoryReq.sendPromiseSeq(Network.get((int)msg.getIdSrc()),seqRoundId, Value );
+			}else {//renvoi un message Reject à p
+				System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
+						"]\n\t  >> numéro de round obsolète");
+				factoryReq.sendRejectSeq(Network.get((int)msg.getIdSrc()), Value);
+			} 
+		}
+
+
+		else if (event instanceof PromiseSeq) {
+			PromiseSeq msgPromise = (PromiseSeq) event;
+			nbPromise++;
+			Hreq.put(msgPromise.getRoundId(), msgPromise.getRequest());
+			if(nbPromise >= quorumSize) {
+				if(Hreq.size()!=0) { 
+					Integer max = -1;
+					for (Map.Entry<Integer, Request> entry : Hreq.entrySet())
+						if(entry.getKey() > max)
+							max = entry.getKey();
+					Value = Hreq.get(max);
+				}else 
+					Value = Hreq.get(0);
+
+				System.out.println(myId+"P: a reçu une majorité de Promise(= "+nbPromise+ ")");
+				System.out.println(myId+"P: diffuse un Accept à tous les Acceptor :  <" + Value +","+seqRoundId+">");
+				for (int i = 0; i < Network.size(); i++) 
+					factoryReq.sendAcceptReq(Network.get(i), seqRoundId, Value);
+			}
+		}
+
+		else if (event instanceof AcceptReq) {
+			AcceptReq msg = (AcceptReq) event;
+			System.out.println(myId+"A: reception message Accept de ["+msg.getIdSrc()+"]");
+			if(msg.getRoundId() >= seqRoundId) {
+				Value = msg.getRequest();
+				System.out.println(myId+"A: diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + Value +","+roundId+">");
+				for (int i = 0; i < Network.size(); i++) {
+					factoryReq.sendAcceptedReq(Network.get(i), Value);
+				}
+			}else {//msg ignoré
+				System.out.println(myId+"A: a ignoré un msg");
+			}
+		}
+
+		else if (event instanceof AcceptedReq) {
+			AcceptedReq msg = (AcceptedReq) event;
+			Hseq.add(msg.getRequest());
+			Set<Request> st = new HashSet<Request>(Hseq); 
+			for (Request s : st) {
+				nbAccepted = Collections.frequency(Hseq, s);
+				if(nbAccepted >= quorumSize) {
+					isFinished = true;
+					putInH(s);
+					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ Value+"je signale aux autres");
+					factoryReq.broadCastReq(seqRoundId, Value);
+				}
+			}
+		}
+
+		else  if (event instanceof RejectSeq) {
+			RejectSeq msgRej = (RejectSeq) event;
+			Value = msgRej.getRequest();
+			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+seqRoundId);
+			nbRejected ++;
+			factoryMsg.sendAskAgaineMessage(seqWaitingTime);
+			factoryReq.retryRequest(seqWaitingTime, Value);
+			seqWaitingTime += 100;
+		}
+
+		else if (event instanceof SeqFound) {
+			SeqFound msg = (SeqFound) event;
+			isFinished = true;
+			Value = msg.getRequest();
+			putInH(Value);
+			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ Value);
+			System.out.println(myId+": a envoyer "+factoryMsg.getNbMsgSent()+" msg au roundId =" + seqRoundId);
+		}
+		return isFinished;
 	}
-	
-	
+
+
+	private boolean Hcontains(Request r) {
+		return PersistantStorage.getH(myId).contains(r);
+	}
+
+	private List<Request> getMyPersistentH() {
+		return PersistantStorage.getH(myId);
+	}
+
+	private void putInH(Request r) {
+		List<Request> l = PersistantStorage.getH(myId);
+		l.add(r);
+		PersistantStorage.setH(myId, l);
+	}
 
 	@Override
 	public Object clone() {
@@ -267,14 +410,17 @@ public class MPSNode implements EDProtocol{
 		catch (CloneNotSupportedException e) {/*Never happends*/}
 		return n;
 	}
-	
+
 	public int getId() {
 		return myId;
 	}
-	
+
 	public int getLeader() {
 		return myLeader;
 	}
 
+	public void resetNode() {
+		this.isSeqValid = false;
+	}
 
 }

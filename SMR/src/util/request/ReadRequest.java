@@ -1,9 +1,9 @@
 package util.request;
 
-public class ReadRequest extends Request{
+public class ReadRequest extends Request implements RequestMessage{
 
-	public ReadRequest(long idsrc, long iddest) {
-		super(idsrc, iddest);
+	public ReadRequest() {
+
 	}
 	
 }
