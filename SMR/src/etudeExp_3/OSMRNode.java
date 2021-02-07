@@ -1,8 +1,19 @@
-package etudeExp_1;
+package etudeExp_3;
 
-import peersim.edsim.EDProtocol;
-import peersim.edsim.EDSimulator;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+
+import etudeExp_1.SMRNode;
+import peersim.config.Configuration;
+import peersim.core.Network;
+import peersim.core.Node;
+import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 import util.FactoryMessage;
 import util.messages.AcceptMessage;
@@ -13,21 +24,7 @@ import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import peersim.config.Configuration;
-import peersim.core.Network;
-import peersim.core.Node;
-
-
-
-public class SMRNode implements EDProtocol{
+public class OSMRNode implements EDProtocol{
 	
 	private static final String PAR_TRANSPORT = "transport";
 
@@ -54,9 +51,10 @@ public class SMRNode implements EDProtocol{
 	private boolean isPromise = false ;//true si le node a promise de ne pas participer à un autre round
 	private boolean isFound = false;//true si un leader a été trouvé (pour la terminaison)
 	
-
-
 	private FactoryMessage factory ;
+	
+
+
 	private Random rand = new Random();
 	
 	/* Quantifie l’impact des paramètres */
@@ -65,7 +63,7 @@ public class SMRNode implements EDProtocol{
 	
 	
 	//Constructor
-	public SMRNode(String prefix) {
+	public OSMRNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
 		String tmp[]=prefix.split("\\.");
 		protocol_id=Configuration.lookupPid(tmp[tmp.length-1]);
@@ -87,7 +85,7 @@ public class SMRNode implements EDProtocol{
 				nbAccepted = 0;
 				nbRejected = 0;
 				myLeader = myId;
-				for (int i = 0; i < quorumSize; i++) {
+				for (int i = 0; i < Network.size(); i++) {
 					factory.sendPrepareMessage( Network.get(i), roundId);
 				}
 			}
@@ -135,7 +133,7 @@ public class SMRNode implements EDProtocol{
 				System.out.println("\n[2A]  [PROPOSER - "+myId+"] a reçu une majorité de Promise(= "+nbPromise
 						+ ")\n\t il doit décider d'une valeur");
 				System.out.println("\t diffuse un Accept à tous les Acceptor :  <" + myLeader +","+roundId+">");
-				for (int i = 0; i < quorumSize; i++) {
+				for (int i = 0; i < Network.size(); i++) {
 					factory.sendAccept(Network.get(i), myLeader, roundId);
 				}
 			}
@@ -148,7 +146,7 @@ public class SMRNode implements EDProtocol{
 			if(msg.getRoundId() >= roundId) {//n est plus grand ou égal au numéro de round du dernier Promise
 				myLeader = (int) msg.getVal();
 				System.out.println("\n diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + myLeader +","+roundId+">");
-				for (int i = 0; i < quorumSize; i++) {
+				for (int i = 0; i < Network.size(); i++) {
 					factory.sendAccepted(Network.get(i),myLeader);
 				}
 			}else {
@@ -172,7 +170,6 @@ public class SMRNode implements EDProtocol{
 				}
 			}
 		}
-		
 
 		/* Message de Rejet : Attend et réitère sa proposition */
 		else  if (event instanceof RejectMessage) {
@@ -224,8 +221,8 @@ public class SMRNode implements EDProtocol{
 	
 	@Override
 	public Object clone() {
-		SMRNode n = null;
-		try {n = (SMRNode) super.clone();} 
+		OSMRNode n = null;
+		try {n = (OSMRNode) super.clone();} 
 		catch (CloneNotSupportedException e) {/*Never happen*/}
 		return n;
 	}
@@ -239,10 +236,8 @@ public class SMRNode implements EDProtocol{
 	public int getLeader() {
 		return myLeader;
 	}
-
 	public FactoryMessage getFactory() {
 		return factory;
 	}
-
 
 }

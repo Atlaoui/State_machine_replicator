@@ -69,6 +69,7 @@ public class MPSNode implements EDProtocol{
 	
 	private int nbReady = 0;
 
+
 	private int myLeader;//valeur du leader choisis
 
 
@@ -150,7 +151,7 @@ public class MPSNode implements EDProtocol{
 		//ont ajoute notre Array
 		PersistantStorage.setH(myId, new ArrayList<Request>());
 		for (int i = 0; i < Network.size(); i++) {
-			factoryMsg.sendPrepareMessage(Network.get(i), roundId);
+			factoryMsg.sendPrepareMessage(Network.get(i), myId);
 		}
 	}
 
