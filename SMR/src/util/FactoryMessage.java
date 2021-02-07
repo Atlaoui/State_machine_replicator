@@ -9,8 +9,6 @@ import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
 import util.messages.LeaderFoundMessage;
-import util.messages.PingMessage;
-import util.messages.PongMessage;
 import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
@@ -79,16 +77,6 @@ public class FactoryMessage {
 		EDSimulator.add(InnbCycle,appMes , node, protocol_Id);
 	}
 	
-	
-	public void sendPingMessage(Node destinataire) {
-		PingMessage msg = new PingMessage(node.getID(), destinataire.getID());
-		tr.send(node, destinataire, msg, protocol_Id);
-	}
-	
-	public void sendPongMessage(Node destinataire) {
-		PongMessage msg = new PongMessage(node.getID(), destinataire.getID());
-		tr.send(node, destinataire, msg, protocol_Id);
-	}
 	
 	public int getNbMsgSent() {return nb_msg_sent;}
 
