@@ -134,7 +134,8 @@ public class MPSNode implements EDProtocol{
 			factoryReq.sendReady(Network.get((int)msg.getIdSrc()));
 		}else if(event instanceof RequestMessage && !isSeqValid) {
 			System.out.println(myId+": commence le secend paxasos");
-			isSeqValid = runSequentialPaxos(node,  pid, event ); 
+			RequestMessage r = (RequestMessage)event;
+			isSeqValid = runSequentialPaxos(node,  pid, event  ,r.getRequest()); 
 		}
 
 	}
@@ -280,9 +281,9 @@ public class MPSNode implements EDProtocol{
 		return Value;
 	}
 
-	Request Value;
+	
 
-	private boolean runSequentialPaxos(Node node, int pid, Object event ) {
+	private boolean runSequentialPaxos(Node node, int pid, Object event ,Request Value) {
 		boolean isFinished = false;
 
 		if(Value!= null && Hcontains(Value)) return true;
@@ -295,7 +296,7 @@ public class MPSNode implements EDProtocol{
 				nbPromise = 0; //nombre de Promise reçu
 				nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
 				nbRejected = 0;
-				Value = msg.getRquest();
+				Value = msg.getRequest();
 
 				for (int i = 0; i < Network.size(); i++) 
 					factoryReq.sendPrepareSeq(Network.get(i), seqRoundId, Value);
@@ -373,7 +374,6 @@ public class MPSNode implements EDProtocol{
 			Value = msgRej.getRequest();
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+seqRoundId);
 			nbRejected ++;
-			factoryMsg.sendAskAgaineMessage(seqWaitingTime);
 			factoryReq.retryRequest(seqWaitingTime, Value);
 			seqWaitingTime += 100;
 		}

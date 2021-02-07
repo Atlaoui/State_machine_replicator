@@ -8,7 +8,8 @@ public class RunSequenceAgain extends Message implements RequestMessage{
 		super(idsrc, iddest);
 		this.r = r;
 	}
-	public Request getRquest() {
+	public Request getRequest() {
 		return r;
 	}
+
 }

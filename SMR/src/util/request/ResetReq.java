@@ -8,4 +8,10 @@ public class ResetReq extends Message implements RequestMessage{
 		super(idsrc, iddest);
 	}
 
+	@Override
+	public Request getRequest() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

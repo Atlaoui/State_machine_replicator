@@ -9,18 +9,17 @@ import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 import util.messages.AskAgainMessage;
 import util.messages.LeaderFoundMessage;
-import util.messages.Ready;
 import util.request.AcceptReq;
 import util.request.AcceptedReq;
 import util.request.BeginSeq;
 import util.request.PrepareSeqence;
 import util.request.PromiseSeq;
 import util.request.ReadRequest;
+import util.request.Ready;
 import util.request.RejectSeq;
 import util.request.Request;
 import util.request.RequestLater;
 import util.request.ResetReq;
-import util.request.Result;
 import util.request.RunSequenceAgain;
 import util.request.SeqFound;
 import util.request.WriteRequest;
@@ -59,10 +58,6 @@ public class FactoryReqest {
 		EDSimulator.add(nbCycle,appMes , node, protocol_Id);
 	}
 
-	public void deliverResult(Node destinataire , long idReq) {
-		Result res = new Result(idReq);
-		tr.send(node, destinataire, res, protocol_Id);
-	}
 
 	public void sendPrepareSeq(Node destinataire , int roundId,Request seq) {
 		PrepareSeqence msg = new PrepareSeqence(node.getID(),destinataire.getID(),roundId,seq);
@@ -94,6 +89,7 @@ public class FactoryReqest {
 		EDSimulator.add(nbCycle,appMes , node, protocol_Id);
 	}
 
+	
 	public void broadCastReq(int roundId, Request r) {
 		for (int i = 0; i < Network.size(); i++) {
 			SeqFound msgFound = new SeqFound(node.getID(), Network.get(i).getID(),roundId,r);

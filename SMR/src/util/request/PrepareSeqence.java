@@ -19,5 +19,10 @@ public class PrepareSeqence extends Message implements RequestMessage{
 	public int getRoundId() {
 		return roundId;
 	}
+	@Override
+	public Request getRequest() {
+		// TODO Auto-generated method stub
+		return seq;
+	}
 
 }
