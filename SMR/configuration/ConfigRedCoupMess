@@ -1,0 +1,21 @@
+network.size 60
+simulation.endtime 50000
+random.seed 5
+init.i ControlE3
+
+protocol.node OSMRNode
+protocol.transport UniformRandomTransport
+
+protocol.applicative.OSMRNode
+
+protocol.transport.mindelay 5
+protocol.transport.maxdelay 500
+
+protocol.node.transport transport
+
+init.i ControlE3
+
+control.endcontroler EndControlerE3
+control.endcontroler.node node
+control.endcontroler.at -1
+control.endcontroler.FINAL
