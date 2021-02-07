@@ -16,6 +16,7 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 import util.FactoryMessage;
+import util.FactoryReqest;
 import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
@@ -23,6 +24,7 @@ import util.messages.LeaderFoundMessage;
 import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
+import util.request.Request;
 
 public class MPSNode implements EDProtocol{
 	private static final String PAR_TRANSPORT = "transport";
@@ -60,8 +62,10 @@ public class MPSNode implements EDProtocol{
 	/*true si un leader a était trouver */
 	private boolean isFound = false;
 	
-	private FactoryMessage factory ;
-
+	private FactoryMessage factoryMsg ;
+	
+	private FactoryReqest factoryReq;
+	
 	private Random rand = new Random();
 	
 	public MPSNode(String prefix) {
@@ -78,6 +82,11 @@ public class MPSNode implements EDProtocol{
 	 */	
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
+		
+		
+		if (event instanceof Request) {
+			//do what ever ? 
+		}
 			// je suis pas sur mais ça a l'aire de marcher si en mets ça xD
 			if(isFound) return;
 		/**
@@ -96,7 +105,7 @@ public class MPSNode implements EDProtocol{
 				nbRejected = 0;
 				myLeader = myId;
 				for (int i = 0; i < Network.size(); i++) {
-					factory.sendPrepareMessage( Network.get(i), roundId);
+					factoryMsg.sendPrepareMessage( Network.get(i), roundId);
 				}
 			}
 		}
@@ -116,12 +125,12 @@ public class MPSNode implements EDProtocol{
 					System.out.println("\t Envoie message"+" <"+myLeader+","+roundId+"> Promise à [" + msg.getIdSrc() + 
 							"]\n\t >> promet qu'il ne participera pas au round inférieur au n° de round: "+roundId);
 					isPromise = true;
-					factory.sendPromise(Network.get((int)msg.getIdSrc()), myLeader, roundId);
+					factoryMsg.sendPromise(Network.get((int)msg.getIdSrc()), myLeader, roundId);
 					}else {//renvoi un message Reject à p
 					System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
 							"]\n\t  >> numéro de round obsolète");
 
-					factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
+					factoryMsg.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
 				} 
 			}
 
@@ -150,9 +159,8 @@ public class MPSNode implements EDProtocol{
 						+ ")\n\t il doit décider d'une valeur");
 				//Proposer p envoie alors à l’ensemble des Acceptors la valeur e qu’il a choisie associée au numéro de round n
 				System.out.println("\t diffuse un Accept à tous les Acceptor :  <" + myLeader +","+roundId+">");
-				for (int i = 0; i < Network.size(); i++) {
-					factory.sendAccept(Network.get(i), myLeader, roundId);
-				}
+				for (int i = 0; i < Network.size(); i++) 
+					factoryMsg.sendAccept(Network.get(i), myLeader, roundId);
 			}
 		}
 
@@ -166,7 +174,7 @@ public class MPSNode implements EDProtocol{
 				//roundId = msg.getRoundId();
 				System.out.println("\n diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + myLeader +","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) {
-					factory.sendAccepted(Network.get(i),myLeader);
+					factoryMsg.sendAccepted(Network.get(i),myLeader);
 				}
 			}else {//msg ignoré
 				System.out.println(myId+": a ignoré un msg");
@@ -186,7 +194,11 @@ public class MPSNode implements EDProtocol{
 					isFound = true;
 					myLeader = s;
 					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
+<<<<<<< HEAD
 					factory.broadcastFoundLead(myLeader, roundId); 
+=======
+					factoryMsg.broadcastFoundLead(myLeader); 
+>>>>>>> eebc61d57157085956f9357dc37ad98f49c76fcb
 				}
 			}
 		}
@@ -200,7 +212,7 @@ public class MPSNode implements EDProtocol{
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
 
 			nbRejected ++;
-			factory.sendAskAgaineMessage(incrWaitingTime+rand.nextInt(200));
+			factoryMsg.sendAskAgaineMessage(incrWaitingTime+rand.nextInt(200));
 			incrWaitingTime += 1000;
 		}
 		
@@ -209,7 +221,7 @@ public class MPSNode implements EDProtocol{
 			isFound = true;
 			myLeader = (int) msg.getLeader();
 			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
-			System.out.println(myId+": a envoyer "+factory.getNbMsgSent()+" msg au roundId =" + roundId);
+			System.out.println(myId+": a envoyer "+factoryMsg.getNbMsgSent()+" msg au roundId =" + roundId);
 		}
 	}
 
@@ -227,12 +239,28 @@ public class MPSNode implements EDProtocol{
 		myId = (int) node.getID();
 		myLeader = myId; // a revoir ici
 		
-		factory = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);	
+		factoryMsg = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);
+		
+		
 		//ETAPE 1A : émet à l’ensemble des Acceptors un message Prepare contenant un numéro de round
 		for (int i = 0; i < Network.size(); i++) {
-			factory.sendPrepareMessage(Network.get(i), roundId);
+			factoryMsg.sendPrepareMessage(Network.get(i), roundId);
 		}
 	}
+	
+	
+	// faire le taf du leader normalement
+	public void sequentialReqest(Node node) {
+		factoryReq = new FactoryReqest(node, (Transport) node.getProtocol(transport_id), protocol_id);
+		for (int i = 0; i < Network.size(); i++) {
+			Node n = Network.get(i);
+			if(n != node) {
+				factoryReq.sendRandRequest(n);
+			}
+		}
+	}
+	
+	
 
 	@Override
 	public Object clone() {
