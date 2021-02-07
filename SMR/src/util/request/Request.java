@@ -1,6 +1,6 @@
 package util.request;
 
-public abstract class Request {
+public abstract class Request implements RequestMessage {
 	private static long cpt = 0;
 	private final long ID;
 

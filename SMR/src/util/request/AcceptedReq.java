@@ -2,7 +2,7 @@ package util.request;
 
 import util.messages.Message;
 
-public class AcceptedReq  extends Message{
+public class AcceptedReq  extends Message implements RequestMessage{
 	private Request seq;
 
 	public AcceptedReq(long idsrc, long iddest , Request seq) {

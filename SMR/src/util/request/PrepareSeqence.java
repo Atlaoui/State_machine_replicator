@@ -4,7 +4,7 @@ import java.util.List;
 
 import util.messages.Message;
 
-public class PrepareSeqence extends Message{
+public class PrepareSeqence extends Message implements RequestMessage{
 	private Request seq;
 	private int roundId;
 	public PrepareSeqence(long idsrc, long iddest, int roundId , Request seq) {

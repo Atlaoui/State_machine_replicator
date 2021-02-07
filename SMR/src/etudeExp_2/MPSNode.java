@@ -33,6 +33,8 @@ import util.request.PromiseSeq;
 import util.request.RejectSeq;
 import util.request.Request;
 import util.request.RequestLater;
+import util.request.RequestMessage;
+import util.request.ResetReq;
 import util.request.RunSequenceAgain;
 import util.request.SeqFound;
 
@@ -64,6 +66,8 @@ public class MPSNode implements EDProtocol{
 	private int nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
 
 	private int nbRejected = 0;
+	
+	private int nbReady = 0;
 
 	private int myLeader;//valeur du leader choisis
 
@@ -78,7 +82,7 @@ public class MPSNode implements EDProtocol{
 
 	private boolean isSeqValid = false;
 
-
+	private boolean startSecondPhase = false;
 
 	private FactoryMessage factoryMsg ;
 
@@ -94,18 +98,19 @@ public class MPSNode implements EDProtocol{
 		protocol_id=Configuration.lookupPid(tmp[tmp.length-1]);
 	}
 
-
-
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
 		// paxos pour le leader
 		if(!isFound) {
 			myLeader = runPaxos(node, pid, event ,myLeader);
-		}else if(myLeader == myId) {
+		}else if(myLeader == myId && !startSecondPhase) {
+			startSecondPhase=true;
 			factoryReq.sendBeginSeq(10000);
 		}
-
+		
+		
 		if(event instanceof RequestLater) {
+			System.out.println(myId+": va lancer une instance de paxos");
 			if(Sequence.isEmpty()!=true) {
 				currentReq = Sequence.get().get(0);
 				sequentialReqest(node,currentReq);
@@ -113,16 +118,22 @@ public class MPSNode implements EDProtocol{
 					factoryReq.sendRequestLater(1000,currentReq);
 			}
 		}
-		else if(event instanceof BeginSeq) {
+		else if(event instanceof BeginSeq && !Sequence.isEmpty()) {
+			System.out.println(myId+":Begin Sequence ");
 			if(currentReq == null)
 				currentReq = Sequence.get().get(0);
 			sequentialReqest(node,currentReq);
 			if(Sequence.popOne())
 				factoryReq.sendRequestLater(1000,currentReq);
-		}
+		}else
 
-		if(event instanceof Request && !isSeqValid) {
-			isSeqValid = runSequentialPaxos(node,  pid, event ,(Request) event); 
+		if(event instanceof ResetReq) {
+			isSeqValid = false;
+			ResetReq msg = (ResetReq) event;
+			factoryReq.sendReady(Network.get((int)msg.getIdSrc()));
+		}else if(event instanceof RequestMessage && !isSeqValid) {
+			System.out.println(myId+": commence le secend paxasos");
+			isSeqValid = runSequentialPaxos(node,  pid, event ); 
 		}
 
 	}
@@ -134,6 +145,8 @@ public class MPSNode implements EDProtocol{
 		System.out.println(myId+"P: fait une 1er proposition roundId =" + roundId);
 		myLeader = myId; 
 		factoryMsg = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);
+		
+		factoryReq = new FactoryReqest(node, (Transport) node.getProtocol(transport_id), protocol_id);
 		//ont ajoute notre Array
 		PersistantStorage.setH(myId, new ArrayList<Request>());
 		for (int i = 0; i < Network.size(); i++) {
@@ -144,8 +157,8 @@ public class MPSNode implements EDProtocol{
 
 
 	public void sequentialReqest(Node node,Request r) {
-		factoryReq = new FactoryReqest(node, (Transport) node.getProtocol(transport_id), protocol_id);
-		for (int i = 0; i < Network.size(); i++) { 
+		for (int i = 0; i < Network.size(); i++) {
+			factoryReq.sendReset(Network.get(i));
 			factoryReq.sendRequest(Network.get(i),r);
 		}
 	}
@@ -266,12 +279,12 @@ public class MPSNode implements EDProtocol{
 		return Value;
 	}
 
+	Request Value;
 
-
-	private boolean runSequentialPaxos(Node node, int pid, Object event , Request Value) {
+	private boolean runSequentialPaxos(Node node, int pid, Object event ) {
 		boolean isFinished = false;
 
-		if(Hcontains(Value)) return true;
+		if(Value!= null && Hcontains(Value)) return true;
 
 		if (event instanceof RunSequenceAgain ) {
 			RunSequenceAgain msg = (RunSequenceAgain) event;
@@ -281,8 +294,8 @@ public class MPSNode implements EDProtocol{
 				nbPromise = 0; //nombre de Promise reçu
 				nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
 				nbRejected = 0;
-				//Value = getMyPersistentH();
-				//Value.add(msg.getRquest());
+				Value = msg.getRquest();
+
 				for (int i = 0; i < Network.size(); i++) 
 					factoryReq.sendPrepareSeq(Network.get(i), seqRoundId, Value);
 			}
@@ -409,6 +422,4 @@ public class MPSNode implements EDProtocol{
 	public void resetNode() {
 		this.isSeqValid = false;
 	}
-	
-
 }

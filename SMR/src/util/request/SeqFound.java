@@ -2,7 +2,7 @@ package util.request;
 
 import util.messages.Message;
 
-public class SeqFound  extends Message{
+public class SeqFound  extends Message implements RequestMessage{
 	private Request seq;
 	private int roundId;
 	public SeqFound(long idsrc, long iddest , int roundId , Request seq) {

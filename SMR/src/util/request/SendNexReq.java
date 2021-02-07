@@ -1,5 +1,5 @@
 package util.request;
 
-public class SendNexReq {
+public class SendNexReq implements RequestMessage{
 
 }

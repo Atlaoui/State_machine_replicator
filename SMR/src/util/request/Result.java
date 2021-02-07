@@ -1,6 +1,6 @@
 package util.request;
 
-public class Result {
+public class Result implements RequestMessage{
 	private final long idRes;
 	
 	public Result(long idRes) {

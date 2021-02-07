@@ -1,5 +1,5 @@
 package util.request;
 
-public class BeginSeq {
+public class BeginSeq implements RequestMessage {
 
 }

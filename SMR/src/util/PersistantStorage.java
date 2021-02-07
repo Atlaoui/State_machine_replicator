@@ -17,4 +17,7 @@ public class PersistantStorage {
 	public static void setH(int id , List<Request> list) {
 		H.replace(id,list);
 	}
+	public static HashMap<Integer, List<Request>> getH(){
+		return H;
+	}
 }

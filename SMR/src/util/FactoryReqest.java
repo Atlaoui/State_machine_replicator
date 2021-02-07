@@ -9,6 +9,7 @@ import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 import util.messages.AskAgainMessage;
 import util.messages.LeaderFoundMessage;
+import util.messages.Ready;
 import util.request.AcceptReq;
 import util.request.AcceptedReq;
 import util.request.BeginSeq;
@@ -18,6 +19,7 @@ import util.request.ReadRequest;
 import util.request.RejectSeq;
 import util.request.Request;
 import util.request.RequestLater;
+import util.request.ResetReq;
 import util.request.Result;
 import util.request.RunSequenceAgain;
 import util.request.SeqFound;
@@ -117,4 +119,15 @@ public class FactoryReqest {
 		EDSimulator.add(nbCycle,appMes , node, protocol_Id);
 	}
 
+
+	public void sendReset(Node dest) {
+		ResetReq msg = new ResetReq(node.getID(),dest.getID());
+		tr.send(node, dest, msg, protocol_Id);
+	}
+
+
+	public void sendReady(Node dest) {
+		Ready msg = new Ready(node.getID(),dest.getID());
+		tr.send(node, dest, msg, protocol_Id);
+	}
 }
