@@ -186,7 +186,7 @@ public class MPSNode implements EDProtocol{
 					isFound = true;
 					myLeader = s;
 					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
-					factory.broadcastFoundLead(myLeader); 
+					factory.broadcastFoundLead(myLeader, roundId); 
 				}
 			}
 		}

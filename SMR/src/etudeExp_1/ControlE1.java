@@ -17,7 +17,7 @@ public class ControlE1 implements Control{
 
 		for(int i=0; i<Network.size(); i++) { //parcours du tableau de Node
 			Node src = Network.get(i);
-			System.out.println("[CLIENT] C : envois au protocole -> " + src.getIndex());
+			System.out.println("[CLIENT] C : envoie au protocole -> " + src.getIndex());
 			SMRNode node = (SMRNode)src.getProtocol(applicative_pid);
 			node.findLeader(src);
 			

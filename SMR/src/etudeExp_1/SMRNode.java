@@ -28,45 +28,41 @@ import peersim.core.Node;
 
 
 public class SMRNode implements EDProtocol{
+	
 	private static final String PAR_TRANSPORT = "transport";
 
 	private final int transport_id;
-
 	private int protocol_id; 
-
-	private int roundId=0;
+	private int roundId;
 	private int myId;
-	//private List<Integer> H = new ArrayList<>();
-	private List<Integer> H2 = new ArrayList<>();
-	private HashMap<Integer, Integer> H = new HashMap<Integer, Integer>(); //historique de l'ensemble des valeurs
+	
+	private List<Integer> H2 = new ArrayList<>();//stock valeurs envoyé lors de la reception msg Accepted 
+	private HashMap<Integer, Integer> H = new HashMap<Integer, Integer>();//historique de l'ensemble des valeurs acceptés
 
 	boolean isSleeping = false;
-	int incrWaitingTime = 100;//temps d'attente
+	int incrWaitingTime = 0;//temps d'attente
 
-	private int nbPromise = 0; //nombre de Promise reçu
+	private int nbPromise = 0;//nombre de msg Promise reçus
+	private int nbAccepted = 0;//nombre de msg Accepted reçus
+	private int nbRejected = 0;//nombre de msg Rejected reçus
 
-	private int nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
-	
-	private int nbRejected = 0;
+	private final int quorumSize = (Network.getCapacity()/2)+1;//valeur de la majorité
 
+	private int myLeader;//valeur du leader choisi
 
-	private final int quorumSize = (Network.getCapacity()/2)+1; //valeur de la majorité
-
-	private int myLeader;//valeur du leader choisis
-
-	/** true si le node a accepter une valeur */
-	private boolean isAccepted = false;
-
-	/**  */
-	private boolean isPromise = false ;
-	
-	/*true si un leader a était trouver */
-	private boolean isFound = false;
+	private boolean isAccepted = false;//true si le node a accepté une valeur 
+	private boolean isPromise = false ;//true si le node a promise de ne pas participer à un autre round
+	private boolean isFound = false;//true si un leader a été trouvé (pour la terminaison)
 	
 	private FactoryMessage factory ;
-
 	private Random rand = new Random();
 	
+	/* Quantifie l’impact des paramètres */
+	private boolean backOff = true;//true: incrementation temps attente du wait
+	private boolean version0 = true;//true: roundId=0 pour tout le monde
+	
+	
+	//Constructor
 	public SMRNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
 		String tmp[]=prefix.split("\\.");
@@ -75,27 +71,16 @@ public class SMRNode implements EDProtocol{
 
 
 
-	/*
-	 * la condition pour avoir une majorité est de recevoir N2 + 1 message Promise et Accepted contenant la
-	même valeur pour pouvoir passer en phase 2 et 3
-	 */	
+	
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
-			// je suis pas sur mais ça a l'aire de marcher si en mets ça xD
-			if(isFound) return;
-		/**
-		 * ici ont ici en recois un message de nous meme nous disons que il faudrait refaire une election
-		 * ça c'est en cas de rejet
-		 */
+		/* Message de ReProposition, indique qu'il faut relancer une requete car les autres ont refusé sa valeur */
 		if (event instanceof AskAgainMessage ) {
-
-			//if(isAccepted == false) {
 			if(nbRejected ==  Network.getCapacity()) {
-
 				roundId++;
-				System.out.println("["+myId+"] Proposition rejeté, redemande election <"+myId+","+roundId+">");
-				nbPromise = 0; //nombre de Promise reçu
-				nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
+				System.out.println("["+myId+"] Proposition rejetée - Redemande élection <"+myId+","+roundId+">");
+				nbPromise = 0;
+				nbAccepted = 0;
 				nbRejected = 0;
 				myLeader = myId;
 				for (int i = 0; i < Network.size(); i++) {
@@ -104,39 +89,32 @@ public class SMRNode implements EDProtocol{
 			}
 		}
 
-		/* ---- Étape 1B : À la réception d’un message Prepare sur un Acceptor a depuis un Proposer p pour un round n ---- */
+		/* ---- Étape 1B : Réception message Prepare sur un Acceptor a depuis un Proposer p pour un round n ---- */
 		else if(event instanceof PrepareMessage ) {
-			//on ignore les roundId inferieur a celui courant
 			PrepareMessage msg = (PrepareMessage) event;
-			System.out.println(myId +":ACCEPTOR reception message Prepare du proposer [" + msg.getIdSrc()+"]");
-			//if (isPromise) {
-				// si ont a déja promis
-			//factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);	
-			 if(msg.getRoundId() > roundId){ //round n est supérieur à round de a
-					//myLeader = (int) msg.getIdSrc();
-					roundId = msg.getRoundId();//update du round courant
+			System.out.println(myId +": ACCEPTOR reception message Prepare du PROPOSER [" + msg.getIdSrc()+"]");	
+			 if(msg.getRoundId() > roundId){//round n supérieur au round accepté precedemment
+				 roundId = msg.getRoundId();
 
-					System.out.println("\t Envoie message"+" <"+myLeader+","+roundId+"> Promise à [" + msg.getIdSrc() + 
-							"]\n\t >> promet qu'il ne participera pas au round inférieur au n° de round: "+roundId);
-					isPromise = true;
-					factory.sendPromise(Network.get((int)msg.getIdSrc()), myLeader, roundId);
-					}else {//renvoi un message Reject à p
-					System.out.println("\t envoie un msg Reject à : [" + msg.getIdSrc()+
-							"]\n\t  >> numéro de round obsolète");
+				 System.out.println("\t Envoie message"+" <"+myLeader+","+roundId+"> Promise à [" + msg.getIdSrc() + 
+							"]\n\t >> promet qu'il ne participera pas au round inférieur à: "+roundId);
+				 factory.sendPromise(Network.get((int)msg.getIdSrc()), myLeader, roundId);
+			 }else {//message rejeté
+				 System.out.println("\t Envoie un msg Reject à : [" + msg.getIdSrc()+ "]\t  >> numéro de round obsolète");
 
-					factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
+				 factory.sendReject(Network.get((int)msg.getIdSrc()), myLeader);
 				} 
 			}
 
 
-		/* ---- Étape 2A : Lorsque p reçoit une majorité de Promise, il doit décider d’une valeur e ---- */
+		/* ---- Étape 2A : P reçoit une majorité de Promise, décide d’une valeur e ---- */
 		else if (event instanceof PromiseMessage) {
 			PromiseMessage msgPromise = (PromiseMessage) event;
 			nbPromise++;
+			//stockage des <round,valeur> promise acceptée
+			System.out.println(myId+": PROMISE  majorité ?  "+nbPromise+" >= "+quorumSize);
 			H.put(msgPromise.getRoundId(), msgPromise.getValue());
-			if(nbPromise >= quorumSize) {
-				//myLeader = (int) msgPromise.getIdSrc();
-				//p choisit la valeur v avec le numéro nv le plus grand
+			if(nbPromise >= quorumSize) { //majorité reçue ?
 				if(H.size()!=0) { 
 					int max = -1;
 					for (Map.Entry<Integer, Integer> entry : H.entrySet()) { 
@@ -151,7 +129,6 @@ public class SMRNode implements EDProtocol{
 				}
 				System.out.println("\n[2A]  [PROPOSER - "+myId+"] a reçu une majorité de Promise(= "+nbPromise
 						+ ")\n\t il doit décider d'une valeur");
-				//Proposer p envoie alors à l’ensemble des Acceptors la valeur e qu’il a choisie associée au numéro de round n
 				System.out.println("\t diffuse un Accept à tous les Acceptor :  <" + myLeader +","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) {
 					factory.sendAccept(Network.get(i), myLeader, roundId);
@@ -159,23 +136,20 @@ public class SMRNode implements EDProtocol{
 			}
 		}
 
-
 		/* ---- Étape 2B À la réception d’un message Accept sur un Acceptor a depuis un Proposer p pour un round n et une valeur e ---- */
 		else if (event instanceof AcceptMessage) {
 			AcceptMessage msg = (AcceptMessage) event;
 			System.out.println("\n[2B] [ACCEPTOR - "+ myId+"] reception message Accept de ["+msg.getIdSrc()+"]");
 			if(msg.getRoundId() >= roundId) {//n est plus grand ou égal au numéro de round du dernier Promise
 				myLeader = (int) msg.getVal();
-				//roundId = msg.getRoundId();
 				System.out.println("\n diffuse un Accepted contenant la valeur e à l'ensemble des Learners :  <" + myLeader +","+roundId+">");
 				for (int i = 0; i < Network.size(); i++) {
 					factory.sendAccepted(Network.get(i),myLeader);
 				}
-			}else {//msg ignoré
-				System.out.println(myId+": a ignoré un msg");
+			}else {
+				System.out.println(myId+": message ignoré ...");
 			}
 		}
-
 
 		/* ---- Étape 3 Lorsqu’un Learner l recoit une majorité de messages Accepted pour une même valeur e ---- */
 		else if (event instanceof AcceptedMessage) {
@@ -189,34 +163,37 @@ public class SMRNode implements EDProtocol{
 					isFound = true;
 					myLeader = s;
 					System.out.println("\n[3] [LEARNER - "+myId+"] le leader est >>>> "+ myLeader+"je signale aux autres");
-					factory.broadcastFoundLead(myLeader); 
+					factory.broadcastFoundLead(myLeader, roundId); 
 				}
 			}
 		}
 
-
-		else  if (event instanceof RejectMessage) {//reception un message Reject, attend avant de réitérer sa proposition
-			//sinon, a ignore le message ou éventuellement renvoi un message Reject 
-			//à p lui indiquant que son numéro de round est invalide et obsolète.
+		/* Message de Rejet : Attend et réitère sa proposition */
+		else  if (event instanceof RejectMessage) {
 			RejectMessage msgRej = (RejectMessage) event;
 			myLeader = msgRej.getTheChosenOne();
-			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+roundId);
-
 			nbRejected ++;
+			System.out.println("["+msgRej.getIdDest()+"] RejectMessage = "+nbRejected+"  >>  numéro de round invalide = "+roundId);
+
 			factory.sendAskAgaineMessage(incrWaitingTime+rand.nextInt(200));
-			incrWaitingTime += 1000;
+			if(backOff == true) {
+				incrWaitingTime += 10;
+			}
 		}
 		
+		/* Message de Terminaison : Signale que le leader a été trouvé */
 		else if (event instanceof LeaderFoundMessage) {
-			LeaderFoundMessage msg = (LeaderFoundMessage) event;
-			isFound = true;
-			myLeader = (int) msg.getLeader();
-			System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
-			System.out.println(myId+": a envoyer "+factory.getNbMsgSent()+" msg au roundId =" + roundId);
+			if(isFound == false) {//condition qui assure la terminaison
+				LeaderFoundMessage msg = (LeaderFoundMessage) event;
+				isFound = true;
+				myLeader = (int) msg.getLeader();
+				System.out.println("["+msg.getIdDest()+"] TERMINAISON LEADER TROUVÉ  >> "+ myLeader);
+				System.out.println(myId+": a envoyé "+factory.getNbMsgSent()+" msg au roundId =" + msg.getRound());
+			}else {
+				return;
+			}
 		}
 	}
-
-
 
 
 
@@ -224,30 +201,38 @@ public class SMRNode implements EDProtocol{
 
 	/* ---- Étape 1A : Le Proposer p émet à l’ensemble des Acceptors un message Prepare ---- */
 	public void findLeader(Node node) {	
-		System.out.println("\n[1A] [PROPOSER - " + node.getIndex() + "] veut devenir le leader avec le numéro de ballot: " + roundId);
+		System.out.println("\n[1A] [PROPOSER - " + node.getID() + "] veut devenir le leader avec le numéro de ballot: " + roundId);
 		//pour init l'algo envoit à tlm 
 		// a voir avec l'algo mais normalement en doit bien envoyer a tlm
 		myId = (int) node.getID();
 		myLeader = myId; // a revoir ici
 		
+		if(version0 == true) {
+			roundId = 0;
+		}else {
+			roundId = myId;
+		}
 		factory = new FactoryMessage(node,(Transport) node.getProtocol(transport_id),protocol_id);	
-		//ETAPE 1A : émet à l’ensemble des Acceptors un message Prepare contenant un numéro de round
 		for (int i = 0; i < Network.size(); i++) {
 			factory.sendPrepareMessage(Network.get(i), roundId);
 		}
 	}
 
+	
+	
 	@Override
 	public Object clone() {
 		SMRNode n = null;
 		try {n = (SMRNode) super.clone();} 
-		catch (CloneNotSupportedException e) {/*Never happends*/}
+		catch (CloneNotSupportedException e) {/*Never happen*/}
 		return n;
 	}
+	
 	
 	public int getId() {
 		return myId;
 	}
+	
 	
 	public int getLeader() {
 		return myLeader;

@@ -63,9 +63,9 @@ public class FactoryMessage {
     	nb_msg_sent++;
     }
     
-    public void broadcastFoundLead(int leader) {
+    public void broadcastFoundLead(int leader, int round) {
     	for (int i = 0; i < Network.size(); i++) {
-			LeaderFoundMessage msgFound = new LeaderFoundMessage(node.getID(), Network.get(i).getID(), leader);
+			LeaderFoundMessage msgFound = new LeaderFoundMessage(node.getID(), Network.get(i).getID(), leader, round);
 			tr.send(node, Network.get(i), msgFound, protocol_Id);
 			nb_msg_sent++;
 		}
