@@ -9,6 +9,8 @@ import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
 import util.messages.LeaderFoundMessage;
+import util.messages.PingMessage;
+import util.messages.PongMessage;
 import util.messages.PrepareMessage;
 import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
