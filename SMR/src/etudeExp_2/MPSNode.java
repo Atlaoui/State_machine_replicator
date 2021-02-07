@@ -422,4 +422,5 @@ public class MPSNode implements EDProtocol{
 	public void resetNode() {
 		this.isSeqValid = false;
 	}
+
 }
