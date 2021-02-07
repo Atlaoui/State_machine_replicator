@@ -3,19 +3,24 @@ package util;
 import java.util.List;
 import java.util.Random;
 
+import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 import util.messages.AskAgainMessage;
+import util.messages.LeaderFoundMessage;
 import util.request.AcceptReq;
 import util.request.AcceptedReq;
+import util.request.BeginSeq;
 import util.request.PrepareSeqence;
 import util.request.PromiseSeq;
 import util.request.ReadRequest;
 import util.request.RejectSeq;
 import util.request.Request;
+import util.request.RequestLater;
 import util.request.Result;
 import util.request.RunSequenceAgain;
+import util.request.SeqFound;
 import util.request.WriteRequest;
 
 public class FactoryReqest {
@@ -41,26 +46,12 @@ public class FactoryReqest {
 	}
 
 
-	public void sendWritRequest(Node destinataire) {
-		WriteRequest req = new WriteRequest(node.getID(),destinataire.getID());
+	public void sendRequest(Node destinataire,Request req) {
 		tr.send(node, destinataire, req, protocol_Id);
 		nbWritReq++;
 	}
 
-	public void sendReadRequest(Node destinataire) {
-		ReadRequest req = new ReadRequest(node.getID(),destinataire.getID());
-		tr.send(node, destinataire, req, protocol_Id);
-		nbReadReq++;
-	}
-
-	public void sendRandRequest(Node destinataire) {
-		Random rand = new Random();
-		if(rand.nextBoolean()) 
-			sendReadRequest(destinataire);
-		else
-			sendWritRequest(destinataire);
-	}
-
+	
 	public void retryRequest(int nbCycle ,  Request request) {
 		RunSequenceAgain appMes = new RunSequenceAgain(node.getID(),node.getID(),request);
 		EDSimulator.add(nbCycle,appMes , node, protocol_Id);
@@ -95,9 +86,17 @@ public class FactoryReqest {
 		AcceptedReq msg = new AcceptedReq(node.getID(),destinataire.getID(),seq);
 		tr.send(node, destinataire, msg, protocol_Id);
 	}
+	
+	public void sendBeginSeq(int nbCycle) {
+		BeginSeq appMes = new BeginSeq();
+		EDSimulator.add(nbCycle,appMes , node, protocol_Id);
+	}
 
 	public void broadCastReq(int roundId, Request r) {
-		
+		for (int i = 0; i < Network.size(); i++) {
+			SeqFound msgFound = new SeqFound(node.getID(), Network.get(i).getID(),roundId,r);
+			tr.send(node, Network.get(i), msgFound, protocol_Id);
+		}
 	}
 	
 	public int getNbWritReq() {
@@ -110,6 +109,12 @@ public class FactoryReqest {
 
 	public void setTransport(Transport tr) {
 		this.tr = tr;
+	}
+
+
+	public void sendRequestLater(long nbCycle , Request currentReq) {
+		RequestLater appMes = new RequestLater(currentReq);
+		EDSimulator.add(nbCycle,appMes , node, protocol_Id);
 	}
 
 }

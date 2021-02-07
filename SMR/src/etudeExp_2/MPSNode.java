@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-
 import etudeExp_1.SMRNode;
 import peersim.config.Configuration;
 import peersim.core.Network;
@@ -18,6 +17,7 @@ import peersim.transport.Transport;
 import util.FactoryMessage;
 import util.FactoryReqest;
 import util.PersistantStorage;
+import util.Sequence;
 import util.messages.AcceptMessage;
 import util.messages.AcceptedMessage;
 import util.messages.AskAgainMessage;
@@ -27,10 +27,12 @@ import util.messages.PromiseMessage;
 import util.messages.RejectMessage;
 import util.request.AcceptReq;
 import util.request.AcceptedReq;
+import util.request.BeginSeq;
 import util.request.PrepareSeqence;
 import util.request.PromiseSeq;
 import util.request.RejectSeq;
 import util.request.Request;
+import util.request.RequestLater;
 import util.request.RunSequenceAgain;
 import util.request.SeqFound;
 
@@ -42,21 +44,21 @@ public class MPSNode implements EDProtocol{
 	private int protocol_id; 
 
 	private int roundId=0;
-	
+
 	private int seqRoundId = 0;
-	
+
 	private int myId;
 	private List<Integer> Haccept = new ArrayList<>();//ancienement H2
 	private HashMap<Integer, Integer> HRespLeader = new HashMap<>(); //historique de l'ensemble des valeurs
-	
-	
+
+
 	private HashMap<Integer, Request> Hreq = new HashMap<>();
 	private List<Request> Hseq = new ArrayList<>();//ancienement H2
-	boolean isSleeping = false;
+
 	private int incrWaitingTime = 100;//temps d'attente
-	
+
 	private int seqWaitingTime = 100;
-	
+
 	private int nbPromise = 0; //nombre de Promise reçu
 
 	private int nbAccepted = 0; //nombre de node ayant reçus un msg Accepted
@@ -69,14 +71,22 @@ public class MPSNode implements EDProtocol{
 	private final int quorumSize = (Network.getCapacity()/2)+1; //valeur de la majorité
 
 
+	private Request currentReq = null;
+
 	/*true si un leader a était trouver */
 	private boolean isFound = false;
+
+	private boolean isSeqValid = false;
+
+
 
 	private FactoryMessage factoryMsg ;
 
 	private FactoryReqest factoryReq;
 
+
 	private Random rand = new Random();
+
 
 	public MPSNode(String prefix) {
 		transport_id = Configuration.getPid(prefix+"."+PAR_TRANSPORT);
@@ -85,12 +95,36 @@ public class MPSNode implements EDProtocol{
 	}
 
 
+
 	@Override
 	public void processEvent(Node node, int pid, Object event) {
 		// paxos pour le leader
 		if(!isFound) {
 			myLeader = runPaxos(node, pid, event ,myLeader);
+		}else if(myLeader == myId) {
+			factoryReq.sendBeginSeq(10000);
 		}
+
+		if(event instanceof RequestLater) {
+			if(Sequence.isEmpty()!=true) {
+				currentReq = Sequence.get().get(0);
+				sequentialReqest(node,currentReq);
+				if(Sequence.popOne())
+					factoryReq.sendRequestLater(1000,currentReq);
+			}
+		}
+		else if(event instanceof BeginSeq) {
+			if(currentReq == null)
+				currentReq = Sequence.get().get(0);
+			sequentialReqest(node,currentReq);
+			if(Sequence.popOne())
+				factoryReq.sendRequestLater(1000,currentReq);
+		}
+
+		if(event instanceof Request && !isSeqValid) {
+			isSeqValid = runSequentialPaxos(node,  pid, event ,(Request) event); 
+		}
+
 	}
 
 
@@ -108,19 +142,16 @@ public class MPSNode implements EDProtocol{
 	}
 
 
-	
-	public void sequentialReqest(Node node) {
+
+	public void sequentialReqest(Node node,Request r) {
 		factoryReq = new FactoryReqest(node, (Transport) node.getProtocol(transport_id), protocol_id);
-		for (int i = 0; i < Network.size(); i++) {
-			Node n = Network.get(i);
-			if(n != node) {
-				factoryReq.sendRandRequest(n);
-			}
+		for (int i = 0; i < Network.size(); i++) { 
+			factoryReq.sendRequest(Network.get(i),r);
 		}
 	}
 
-	
-	
+
+
 
 	private int runPaxos(Node node, int pid, Object event , int Value) {
 
@@ -236,12 +267,12 @@ public class MPSNode implements EDProtocol{
 	}
 
 
-	
+
 	private boolean runSequentialPaxos(Node node, int pid, Object event , Request Value) {
 		boolean isFinished = false;
-		
+
 		if(Hcontains(Value)) return true;
-		
+
 		if (event instanceof RunSequenceAgain ) {
 			RunSequenceAgain msg = (RunSequenceAgain) event;
 			if(nbRejected ==  Network.getCapacity()) {
@@ -286,7 +317,7 @@ public class MPSNode implements EDProtocol{
 					Value = Hreq.get(max);
 				}else 
 					Value = Hreq.get(0);
-				
+
 				System.out.println(myId+"P: a reçu une majorité de Promise(= "+nbPromise+ ")");
 				System.out.println(myId+"P: diffuse un Accept à tous les Acceptor :  <" + Value +","+seqRoundId+">");
 				for (int i = 0; i < Network.size(); i++) 
@@ -328,7 +359,7 @@ public class MPSNode implements EDProtocol{
 			Value = msgRej.getRequest();
 			System.out.println("["+msgRej.getIdDest()+"] RejectMessage  >>  numero de round invalide = "+seqRoundId);
 			nbRejected ++;
-			factoryMsg.sendAskAgaineMessage(seqWaitingTime+rand.nextInt(200));
+			factoryMsg.sendAskAgaineMessage(seqWaitingTime);
 			factoryReq.retryRequest(seqWaitingTime, Value);
 			seqWaitingTime += 100;
 		}
@@ -343,22 +374,22 @@ public class MPSNode implements EDProtocol{
 		}
 		return isFinished;
 	}
-	
+
 
 	private boolean Hcontains(Request r) {
 		return PersistantStorage.getH(myId).contains(r);
 	}
-	
+
 	private List<Request> getMyPersistentH() {
 		return PersistantStorage.getH(myId);
 	}
-	
+
 	private void putInH(Request r) {
 		List<Request> l = PersistantStorage.getH(myId);
 		l.add(r);
 		PersistantStorage.setH(myId, l);
 	}
-	
+
 	@Override
 	public Object clone() {
 		MPSNode n = null;
@@ -375,6 +406,9 @@ public class MPSNode implements EDProtocol{
 		return myLeader;
 	}
 
+	public void resetNode() {
+		this.isSeqValid = false;
+	}
 	
-	
+
 }

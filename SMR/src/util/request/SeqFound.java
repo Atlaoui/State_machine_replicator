@@ -10,9 +10,11 @@ public class SeqFound  extends Message{
 		this.seq=seq;
 		this.roundId=roundId;
 	}
+	
 	public Request getRequest() {
 		return seq;
 	}
+	
 	public int getRoundId() {
 		return roundId;
 	}
